@@ -17,7 +17,8 @@ Imports:
   dbplyr,
   quarto,
   DBI,
-  odbc
+  odbc,
+  lubridate
 VignetteBuilder: quarto
 Suggests: 
     rmarkdown,

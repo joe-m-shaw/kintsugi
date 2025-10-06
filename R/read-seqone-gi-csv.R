@@ -31,7 +31,57 @@ read_seqone_gi_csv <- function(filepath,
                               low_tumor_fraction = readr::col_number()
                             )) |> 
     janitor::clean_names() |> 
-    dplyr::mutate(filepath = filepath)
+    dplyr::mutate(filepath = filepath,
+                  date = lubridate::parse_date_time(x = analysis_date, 
+                                orders = c("dmy", "ymd")),
+         status = factor(status,
+                         levels = c("Positive", "Negative",
+                                    "Non-conclusive"))) 
+  
+  if(anyNA.data.frame(output |> 
+                      dplyr::select(-c(brca_status, brca_mutation)))){
+    warning("NAs in output")
+  }
+  
+  if((min(output$lga, na.rm = TRUE) < 0) |
+     (max(output$lga, na.rm = TRUE) > 100)){
+    warning("LGA value is not in range 0-100")
+  }
+  
+  if((min(output$lpc, na.rm = TRUE) < 0)|
+     (max(output$lpc, na.rm = TRUE) > 100)){
+    warning("LPC is not in range 0-100")
+  }
+  
+  if((min(output$score, na.rm = TRUE) < 0)|
+     (max(output$score, na.rm = TRUE) > 1)){
+    warning("SeqOne score is not between between 0-1")
+  } 
+  
+  if(min(output$ccne1_cn, na.rm = TRUE) < 0 |
+     max(output$ccne1_cn, na.rm = TRUE) > 100){
+    warning("CCNE1 copy number is not between 0-100")
+  } 
+  
+  if(min(output$rad51b_cn, na.rm = TRUE) < 0 |
+     max(output$rad51b_cn, na.rm = TRUE) > 100){
+    warning("RAD51B copy number is not between 0-100")
+  }
+  
+  if(min(output$coverage) < 0 |
+     max(output$coverage) > 7){
+    warning("Coverage is not between 0-7X")
+  }
+  
+  if(min(output$pct_tum_cell) < 0 |
+     max(output$pct_tum_cell) > 1){
+    warning("Percentage tumours cells is not between 0-1")
+  }
+  
+  if(min(output$gi_confidence, na.rm = TRUE) < 0 |
+     max(output$gi_confidence, na.rm = TRUE) > 1){
+    warning("GI confidence is not between 0-1")
+  }
   
   return(output)
   
