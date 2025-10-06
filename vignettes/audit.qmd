@@ -16,16 +16,34 @@ vignette: >
   %\VignetteEngine{quarto::html}
 ---
 
-## Quarto
-
-Quarto enables you to weave together content and executable code into a finished document.
-To learn more about Quarto see <https://quarto.org>.
-
-## Running Code
-
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code.
-You can embed code like this:
+# Find SeqOne csv files
 
 ```{r}
+
 library(kintsugi)
+
+connection <- connect_to_sql_server()
+
+dna_db_pcr_new <- dplyr::tbl(connection, 
+                             dbplyr::in_catalog(catalog = "MolecularDB",
+                                                     schema = "dbo",
+                                                     table = "PCR_New"))|> 
+  janitor::clean_names()
+
+all_worksheets <- dna_db_pcr_new |> 
+  dplyr::select(pcrid, date, description) |> 
+  dplyr::collect() |> 
+  dplyr::mutate(ws = paste0("WS", pcrid))
+
+seqone_ws_regex <- "seqone|seq\\sone|seq_one|SSXT\\ssWGS\\sHRD"
+
+gi_ws_info <- all_worksheets |> 
+  dplyr::filter(grepl(pattern = seqone_ws_regex,
+               x = description,
+               ignore.case = TRUE))
+
+stopifnot(nrow(gi_ws_info) > 0)
+
+head(gi_ws_info)
+
 ```

@@ -14,7 +14,10 @@ Imports:
   readr,
   janitor,
   dplyr,
-  quarto
+  dbplyr,
+  quarto,
+  DBI,
+  odbc
 VignetteBuilder: quarto
 Suggests: 
     rmarkdown
