@@ -2,6 +2,7 @@
 
 export(collect_seqone_gi_worksheets)
 export(collect_worksheets_by_description)
+export(connect_to_lazy_tbl)
 export(connect_to_sql_server)
 export(find_worksheet_filepaths)
 export(read_seqone_gi_csv)

@@ -1,4 +1,3 @@
-
 collect_worksheets_by_description <- function(ws_strings,
                                               df_cols = c(pcrid, date, description)){
   
@@ -14,15 +13,9 @@ collect_worksheets_by_description <- function(ws_strings,
   #'
   #' @examples collect_worksheets_by_description(ws_strings = c("seqone"))
   
-  connection <- connect_to_sql_server()
+  dnadb_pcr_new <- connect_to_lazy_tbl("PCR_New")
   
-  dna_db_pcr_new <- dplyr::tbl(connection, 
-                               dbplyr::in_catalog(catalog = "MolecularDB",
-                                                  schema = "dbo",
-                                                  table = "PCR_New"))|> 
-    janitor::clean_names()
-  
-  all_worksheets <- dna_db_pcr_new |> 
+  all_worksheets <- dnadb_pcr_new |> 
     dplyr::select({{ df_cols }}) |> 
     dplyr::collect() |> 
     dplyr::mutate(ws = paste0("WS", pcrid))

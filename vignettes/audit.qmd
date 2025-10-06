@@ -16,40 +16,10 @@ vignette: >
   %\VignetteEngine{quarto::html}
 ---
 
-# Find SeqOne csv files
-
 ```{r}
-
 library(kintsugi)
-
-gi_ws_info <- collect_seqone_gi_worksheets()
-
-gi_ws_list <- list(gi_ws_info$ws)
-
-gi_ws_filepaths <- gi_ws_list |> 
-  purrr::map(\(gi_ws_list) find_worksheet_filepaths(worksheet = gi_ws_list,
-                                      pattern = "hrd-results.*csv")) |> 
-  purrr::flatten()
-
-file.copy(from = gi_ws_filepaths,
-          to = "S:/central shared/Genetics/Mol_Shared/Development.Team/kintsugi_ovarian_cancer/01_initial/seqone_gi_csvs/")
-
-ovarian_cancer_folder <- "S:/central shared/Genetics/Mol_Shared/Development.Team/kintsugi_ovarian_cancer/"
-
-initial_folder <- paste0(ovarian_cancer_folder, "01_initial/")
-
-seqone_gi_csv_folder <- paste0(initial_folder, "seqone_gi_csvs/")
-
-seqone_csv_filepaths <- list.files(path = seqone_gi_csv_folder,
-                                   full.names = TRUE,
-                                   recursive = FALSE,
-                                   pattern = "hrd-results.*csv"
-                                   )
-
-gi_ws_collated <- seqone_csv_filepaths |> 
-  purrr::map(\(seqone_csv_filepaths) read_seqone_gi_csv(seqone_csv_filepaths)) |> 
-  purrr::list_rbind() 
-
-head(gi_ws_collated)
-
 ```
+
+# Introduction
+
+This is a data audit for the ovarian cancer testing service.
