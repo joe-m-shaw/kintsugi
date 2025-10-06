@@ -20,7 +20,7 @@ connect_to_lazy_tbl <- function(
   output <- dplyr::tbl(connection, 
              dbplyr::in_catalog(catalog = {{ catalog }},
                                 schema = {{ schema }},
-                                table = "PCR_New"))|> 
+                                table = {{ table }}))|> 
     janitor::clean_names()
   
   return(output)

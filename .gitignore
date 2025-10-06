@@ -49,3 +49,8 @@ po/*~
 rsconnect/
 .Rproj.user
 inst/doc
+
+# analysis outputs
+analysis/*.html
+analysis/*.pdf
+analysis/*.docx

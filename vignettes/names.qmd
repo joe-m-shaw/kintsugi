@@ -1,0 +1,93 @@
+---
+title: "Naming convention"
+format:
+  html:
+    code-fold: true
+    code-summary: "Show the code"
+    embed-resources: true
+editor: visual
+vignette: >
+  %\VignetteIndexEntry{audit}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{quarto::html}
+---
+
+```{r}
+library(kintsugi)
+```
+
+`kintsugi` uses the following naming conventions.
+
+## Data sources
+
+-   **dnadb:** data from the DNA Database, also referred to as DLIMS.
+
+-   **igene:** data from the iGene database.
+
+-   **csv:** data from csv files
+
+## Identifiers
+
+-   **nhsno:** the patient's 10 digit NHS number.
+
+-   **rno:** the iGene referral (R) number.
+    This number identifies a referral - one referral can have multiple samples.
+
+-   **sno:** the iGene sample (S) number.
+    This number identifies a sample, such as shavings from a formalin-fixed paraffin-embedded (FFPE) block.
+    One sample can have multiple derivatives.
+
+-   **dno:** the iGene derivative (D) number.
+    This number identifies material that is *derived* from a sample, such as DNA which is extracted from FFPE shavings.
+
+-   **tno:** the iGene test (T) number.
+    This number identifies a single test instance.
+    One D number can have multiple T numbers.
+
+-   **labno:** the laboratory number or "DNA number" used on DNA Database.
+    Any labno is an 8-digit string of numbers.
+    The first two digits indicate the year the sample was received.
+    The laboratory number is the DNA Database equivalent of the iGene D number.
+
+-   **pathno:** the identifier of the FFPE pathology block from which DNA was extracted.
+    Different pathology labs have different formats for pathno.
+
+-   **ws:** the worksheet the sample was tested on at the Manchester Genomic Laboratory Hub.
+    The format is WS followed by 6 digits.
+    
+## Verbs
+
+I have tried to use consistent verbs to label dataframes.
+These verbs are based on their usage in the `dplyr` package.
+
+-   **mutate:** add on useful information.
+
+-   **bind:** bind together two (or more) large datasets, using the rbind function.
+
+-   **clean:** filter a table, removing duplicates or tidying up free-text columns
+
+-   **collect:** pull information out of a database.
+
+-   **join:** bring two tables together using a common key variable
+
+## Projects
+
+-   **service:** samples tested as part of the live clinical service, with a genetic result returned to a clinician.
+
+-   **validation:** samples tested as part of a validation of a method, with no genetic result returned to a clinician.
+
+## Acronyms
+
+-   **orpp:** One Result Per Patient
+
+-   **orpr:** One Result Per Referral
+
+-   **orps:** One Result Per Sample
+
+-   **ICP:** Inherited Cancer Panel
+
+# File naming
+
+The naming convention for files and tables is: genetic test, then data source, then what has been done to the data.
+
+Example: "tvar_dnadb_cleaned" - tumour variant data sourced from DNA Database which has been cleaned.

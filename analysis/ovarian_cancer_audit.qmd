@@ -14,6 +14,7 @@ editor: visual
 
 ```{r}
 library(kintsugi)
+library(tidyverse)
 ```
 
 # Introduction
@@ -52,14 +53,27 @@ seqone_csv_filepaths <- list.files(path = seqone_gi_csv_folder,
 
 gi_ws_collated <- seqone_csv_filepaths |> 
   purrr::map(\(seqone_csv_filepaths) read_seqone_gi_csv(seqone_csv_filepaths)) |> 
-  purrr::list_rbind() 
+  purrr::list_rbind() |> 
+  mutate(labno = str_extract(string = sample,
+                             pattern = "\\d{8}"))
 
 ```
 
-Add sample information for SeqOne data.
+Here is a plot of the collated SeqOne data.
 
+```{r}
+#| echo: FALSE
 
+ggplot(gi_ws_collated, aes(x = lga,
+                           y = score)) +
+  geom_point()
 
+```
 
+```{r}
 
+gi_labnos <- unique(gi_ws_collated$labno)
 
+gi_ids <- get_dnadb_ids_by_labno(labno_vector = gi_labnos)
+
+```
