@@ -1,12 +1,15 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# kintsugi
+# kintsugi <img src="man/figures/logo.png" align="right" height="200" alt="" />
 
 <!-- badges: start -->
 <!-- badges: end -->
 
-The goal of kintsugi is to …
+kintsugi is a package to assist with auditing of data from genetic
+testing at the North West Genomic Laboratory Hub in Manchester. Genetic
+test information is split between two different databases (DNA Database
+and iGene) and is also saved in individual .xlsx and .csv files.
 
 ## Installation
 
@@ -18,31 +21,12 @@ You can install the development version of kintsugi from
 pak::pak("joe-m-shaw/kintsugi")
 ```
 
-## Example
+## What does kintsugi mean?
 
-This is a basic example which shows you how to solve a common problem:
-
-``` r
-library(kintsugi)
-## basic example code
-```
-
-What is special about using `README.Rmd` instead of just `README.md`?
-You can include R chunks like so:
-
-``` r
-summary(cars)
-#>      speed           dist       
-#>  Min.   : 4.0   Min.   :  2.00  
-#>  1st Qu.:12.0   1st Qu.: 26.00  
-#>  Median :15.0   Median : 36.00  
-#>  Mean   :15.4   Mean   : 42.98  
-#>  3rd Qu.:19.0   3rd Qu.: 56.00  
-#>  Max.   :25.0   Max.   :120.00
-```
-
-You’ll still need to render `README.Rmd` regularly, to keep `README.md`
-up-to-date. `devtools::build_readme()` is handy for this.
-
-In that case, don’t forget to commit and push the resulting figure
-files, so they display on GitHub and CRAN.
+Kintsugi is the Japanese art of repairing broken pottery, literally
+meaning “golden joinery”. The philosophy of kintsugi posits that
+breaking and rejoining are “part of the history of an object, rather
+than something to disguise”
+([Wikipedia](https://en.wikipedia.org/wiki/Kintsugi)). This project aims
+to join data from multiple aspects of genetic testing, without trying to
+disguise this.
