@@ -74,6 +74,11 @@ ggplot(gi_ws_collated, aes(x = lga,
 
 gi_labnos <- unique(gi_ws_collated$labno)
 
-gi_ids <- get_dnadb_ids_by_labno(labno_vector = gi_labnos)
+gi_ids <- collect_dnadb_ids_by_labno(labno_vector = gi_labnos)
 
 ```
+
+Find tBRCA results
+
+
+
