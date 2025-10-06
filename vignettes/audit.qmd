@@ -24,6 +24,11 @@ library(kintsugi)
 
 gi_ws_info <- collect_seqone_gi_worksheets()
 
-head(gi_ws_info)
+gi_ws_list <- list(gi_ws_info$ws)
+
+gi_ws_filepaths <- gi_ws_list |> 
+  purrr::map(\(gi_ws_list) find_worksheet_filepaths(worksheet = gi_ws_list,
+                                      pattern = "hrd-results.*csv")) |> 
+  purrr::flatten()
 
 ```

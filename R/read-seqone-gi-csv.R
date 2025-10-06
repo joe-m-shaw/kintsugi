@@ -1,4 +1,3 @@
-
 read_seqone_gi_csv <- function(filepath,
                                n_rows = 1) {
   
