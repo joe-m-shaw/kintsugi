@@ -22,7 +22,7 @@ vignette: >
 
 library(kintsugi)
 
-gi_ws_info <- collect_worksheets_by_description(ws_strings = c("seqone"))
+gi_ws_info <- collect_seqone_gi_worksheets()
 
 head(gi_ws_info)
 
