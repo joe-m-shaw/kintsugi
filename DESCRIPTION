@@ -1,14 +1,20 @@
 Package: kintsugi
-Title: What the Package Does (One Line, Title Case)
+Title: Rejoin Genetic Data
 Version: 0.0.0.9000
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
+    person("Joe M.", "Shaw", , "joseph.shaw2@mft.nhs.uk", role = c("aut", "cre"),
+    comment = c(ORCID = "0000-0002-5089-751X"))
+Description: kintsugi allows the joining and analysis of genetic data at the North West Genomic Laboratory Hub (Manchester) in a structured, transparent and reproducible way.
 License: GPL (>= 3)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Imports:
+  knitr,
   readr,
   janitor,
-  dplyr
+  dplyr,
+  quarto
+VignetteBuilder: quarto
+Suggests: 
+    rmarkdown
