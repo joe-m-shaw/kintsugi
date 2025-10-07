@@ -13,8 +13,12 @@ editor: visual
 ---
 
 ```{r}
+#| warning: FALSE
+#| message: FALSE
+
 library(kintsugi)
 library(tidyverse)
+library(janitor)
 ```
 
 # Introduction
@@ -41,7 +45,7 @@ seqone_gi_csv_folder <- paste0(initial_folder, "seqone_gi_csvs/")
 Collate SeqOne csv data
 
 ```{r}
-#| label: collate-seqone-data
+#| label: find-seqone-files
 
 gi_ws_info <- collect_seqone_gi_worksheets()
 
@@ -52,8 +56,21 @@ gi_ws_filepaths <- gi_ws_list |>
                                       pattern = "hrd-results.*csv")) |> 
   purrr::flatten()
 
+```
+
+```{r}
+#| label: copy-files
+#| include: FALSE
+#| message: FALSE
+
 file.copy(from = gi_ws_filepaths,
           to = seqone_gi_csv_folder)
+
+```
+
+```{r}
+#| label: collate-seqone-data
+#| warning: FALSE
 
 seqone_csv_filepaths <- list.files(path = seqone_gi_csv_folder,
                                    full.names = TRUE,
@@ -339,11 +356,1032 @@ write_csv(glvar_dnadb_results,
           paste0(initial_folder,
             "glvar_dnadb_extracted.csv"))
 
+glvar_dnadb_extracted <- glvar_dnadb_results
+
 write_csv(tvar_dnadb_results,
           paste0(initial_folder,
             "tvar_dnadb_extracted.csv"))
 
+tvar_dnadb_extracted <- tvar_dnadb_results
+
+```
+
+# Get data from iGene
+
+```{r}
+#| label: eval-hrd
+
+eval_hrd_lazy <- connect_to_lazy_tbl(schema = "GenExport",
+                    table = "Eval_HRD")
+
+eval_hrd <- eval_hrd_lazy |> 
+  # For some reason you have to select test_order_date first
+  select(c(test_order_date, test_name, test_identifier, referral_number, 
+           nhsn_umber, test_name, field, data_value, box)) |> 
+  collect()
+
+test_names <- c("PANEL: M2.5 - SeqOne HRD Status",
+                "PANEL: R207.1 - Inherited ovarian cancer (without breast cancer) v4.0 (ICP)",
+                "PANEL: M2_tBRCA_PS",
+                "PANEL: M2_tBRCA_PS v2.a",
+                "PANEL: M2_tBRCA_PS v2.b")
+
+stopifnot(nrow(eval_hrd) != 0)
+stopifnot(length(setdiff(unique(eval_hrd$test_name), test_names)) == 0)
+stopifnot(ncol(eval_hrd) == 8)
+
+```
+
+```{r}
+#| label: widen-by-test
+#| include: FALSE
+
+widen_by_test <- function(df = eval_hrd, 
+                          test_vector,
+                          prefix_string) {
+  
+  output <- eval_hrd |> 
+    filter(test_name %in% test_vector) |> 
+    pivot_wider(id_cols = c(referral_number, 
+                            nhsn_umber,
+                            test_order_date, 
+                            test_identifier),
+                names_from = box,
+                values_from = data_value,
+                names_prefix = prefix_string) |> 
+    clean_names() |> 
+    rename(nhsno = nhsn_umber)
+  
+  if(nrow(output) == 0){
+    stop("Output dataframe is empty")
+  }
+  
+  return(output)
+  
+}
+
+```
+
+```{r}
+#| label: extract-tvar-and-glvar-results
+
+glvar_igene <- widen_by_test(df = eval_hrd,
+                              test_vector = c("PANEL: R207.1 - Inherited ovarian cancer (without breast cancer) v4.0 (ICP)"), 
+                              prefix_string = "glvar")
+
+stopifnot(ncol(glvar_igene) == 23)
+
+tvar_igene <- widen_by_test(df = eval_hrd,
+                             test_vector = c("PANEL: M2_tBRCA_PS",
+                                             "PANEL: M2_tBRCA_PS v2.a",
+                                             "PANEL: M2_tBRCA_PS v2.b"), 
+                             prefix_string = "tvar")
+
+gi_igene <- widen_by_test(df = eval_hrd,
+                          test_vector = c("PANEL: M2.5 - SeqOne HRD Status"), 
+                          prefix_string = "gi")
+
+
+```
+
+```{r}
+#| label: perform-checks
+#| include: FALSE
+
+stopifnot(nrow(glvar_igene) != 0)
+stopifnot(nrow(tvar_igene) != 0)
+stopifnot(nrow(gi_igene) != 0)
+
+tests_in_eval_hrd <- unique(eval_hrd$test_identifier)
+
+tests_in_wide_tables <- c(unique(glvar_igene$test_identifier),
+                          unique(tvar_igene$test_identifier),
+                          unique(gi_igene$test_identifier))
+
+# Check no tests have been lost from the dataset
+stopifnot(length(setdiff(tests_in_eval_hrd, tests_in_wide_tables)) == 0)
+
+```
+
+```{r}
+#| label: remove-entries-without-headlines
+#| include: FALSE
+
+glvar_igene_na <- glvar_igene |> 
+  filter(is.na(glvar_headline_result))
+
+glvar_igene_no_na <- glvar_igene |> 
+  filter(!is.na(glvar_headline_result))
+
+tvar_igene_na <- tvar_igene |> 
+  filter(is.na(tvar_headline_result))
+
+tvar_igene_no_na <- tvar_igene |> 
+  filter(!is.na(tvar_headline_result))
+
 ```
 
 
+`r nrow(glvar_igene_na)` germline entries with no headline result were removed.
 
+`r nrow(tvar_igene_na)` tumour entries with no headline result were removed.
+
+iGene germline variant data ranges from 
+`r format.Date(x = min(glvar_igene_no_na$test_order_date), format = "%d %B %Y")`
+to
+`r format.Date(x = max(glvar_igene_no_na$test_order_date), format = "%d %B %Y")`.
+
+iGene tumour variant data ranges from
+`r format.Date(x = min(tvar_igene_no_na$test_order_date), format = "%d %B %Y")`
+to
+`r format.Date(x = max(tvar_igene_no_na$test_order_date), format = "%d %B %Y")`.
+
+```{r}
+#| label: export-igene-results
+
+write_csv(glvar_igene_no_na,
+          paste0(initial_folder,
+                 "glvar_igene_extracted.csv"))
+
+glvar_igene_extracted <- glvar_igene_no_na
+
+write_csv(tvar_igene_no_na,
+          paste0(initial_folder,
+                 "tvar_igene_extracted.csv"))
+
+tvar_igene_extracted <- tvar_igene_no_na
+
+```
+
+# Clean DNA Database data
+
+Annotate variant classifications
+
+```{r}
+#| label: add-glvar-classifications
+
+glvar_classifications <- read_csv(paste0(initial_folder,
+                                         "glvar_classifications.csv"),
+                                  show_col_types = FALSE)
+
+stopifnot(anyDuplicated(glvar_classifications$glvar_seqv1_description) == 0)
+
+glvar_dnadb_classifications <- glvar_dnadb_extracted |> 
+  mutate(
+    # Split the "genotype" field into SNV and CNV results
+    glvar_snv_result = str_extract(string = genotype,
+                                        pattern = "(.*);(.*)",
+                                        group = 1),
+    glvar_cnv_result = str_extract(string = genotype,
+                                        pattern = "(.*);(.*)",
+                                        group = 2),
+    # Correct input for sample 18028742 - checked against report
+    glvar_snv_result = case_when(
+      glvar_snv_result == "BRCA1 Exon 3 3 Copies" ~"No pathogenic variant identified",
+      TRUE ~glvar_snv_result
+    ),
+    # Separate HGVS nomenclature into glvar_seqv1_description column
+    glvar_seqv1_description = str_extract(string = glvar_snv_result,
+                                         pattern = "(.*)\\s\\d{1,3}%",
+                                         group = 1),
+    # Remove non-pathogenic BRCA1 variant from sample 24030433 which also
+    # has a pathogenic BRCA2 variant
+    glvar_seqv1_description = case_when(
+      genotype == "BRCA2 c.4276dup p.(Thr1426AsnfsTer12) 48%; BRCA1 c.5074+13C>A 43%; CNV Analysis Failed" ~"BRCA2 c.4276dup p.(Thr1426AsnfsTer12)",
+      TRUE ~glvar_seqv1_description
+    ),
+    # glvar_icnv1_description is used in the iGene results to describe CNVs
+    glvar_icnv1_description = str_extract(string = glvar_cnv_result,
+                                  pattern = ".*Ex.*")
+    ) |> 
+  left_join(glvar_classifications,
+             by = "glvar_seqv1_description") |> 
+  mutate(glvar_icnv1_classification = case_when(
+    glvar_icnv1_description == " BRCA1 Ex02 deletion" ~"Pathogenic",
+    TRUE ~NA
+  ))
+
+samples_with_gl_sn_variants <- glvar_dnadb_classifications |> 
+  filter(!is.na(glvar_seqv1_description))
+
+samples_with_gl_cn_variants <- glvar_dnadb_classifications |> 
+  filter(!is.na(glvar_icnv1_description))
+
+# Check all variants have a classification
+#stopifnot(anyNA(samples_with_gl_sn_variants$glvar_seqv1_classification) == FALSE)
+
+stopifnot(anyNA(samples_with_gl_cn_variants$glvar_icnv1_classification) == FALSE)
+
+```
+
+Add headline to germline results
+
+```{r}
+#| label: add-headline-to-glvar
+
+glvar_dnadb_cleaned <- glvar_dnadb_classifications |> 
+  mutate(glvar_headline_result = case_when(
+    genotype %in% c("No pathogenic variant identified; No relevant CNV identified",
+                    "No pathogenic variant identified; CNV Analysis Failed") ~"No reportable variant(s) detected",
+    genotype %in% c("Fail") ~"Analysis failed (see quality score)",
+    glvar_seqv1_classification %in% c("Pathogenic", "Likely pathogenic",
+                                "Uncertain significance") ~"Reportable variant(s) detected",
+    glvar_seqv1_classification == "Not reported" ~"No reportable variant(s) detected",
+    glvar_icnv1_classification == "Pathogenic" ~"Reportable variant(s) detected",
+    # Specify headline for 18028742
+    (glvar_snv_result == "No pathogenic variant identified" &
+      glvar_cnv_result == " No pathogenic variant identified") ~"No reportable variant(s) detected"))
+
+# stopifnot(anyNA(glvar_dnadb_cleaned$glvar_headline_result) == FALSE)
+
+```
+
+Add variant classifications to tumour results
+
+```{r}
+#| label: add-classifications-to-tvar
+
+tvar_classifications <- read_csv(paste0(initial_folder,
+                                        "tvar_classifications.csv"),
+                                 show_col_types = FALSE)
+
+stopifnot(anyDuplicated(tvar_classifications$tvar_seqv1_description) == 0)
+
+tvar_dnadb_classifications <- tvar_dnadb_extracted |> 
+  mutate(tvar_seqv1_description = str_extract(string = genotype,
+                                             pattern = "(.*)\\s\\d{1,3}%",
+                                             group = 1),
+         # Add variant percentage
+         tvar_seqv1_state = str_extract(string = genotype,
+                                        pattern = ".*\\s(\\d{1,3})%",
+                                        group = 1)) |> 
+  left_join(tvar_classifications, by = "tvar_seqv1_description")
+
+samples_with_tumour_variants <- tvar_dnadb_classifications |> 
+  filter(!is.na(tvar_seqv1_description))
+
+stopifnot(anyNA(samples_with_tumour_variants$tvar_seqv1_description) == FALSE)
+
+```
+
+Add headline to tumour variant results
+
+```{r}
+#| label: add-headline-to-tvar
+
+no_path_var_strings <- unique(grep(pattern = "no\\spathogenic",
+            x = tvar_dnadb_extracted$genotype,
+            ignore.case = TRUE,
+            value = TRUE))
+
+fail_strings <- c("Analysis failed", "Fail")
+
+tvar_dnadb_cleaned <- tvar_dnadb_classifications |> 
+  mutate(tvar_headline_result = case_when(
+    genotype %in% no_path_var_strings ~"No reportable variant(s) detected",
+    genotype %in% fail_strings ~"Analysis failed (see quality score)",
+    tvar_seqv1_classification %in% c("Pathogenic", "Likely pathogenic",
+                                "Uncertain significance") ~"Reportable variant(s) detected",
+    tvar_seqv1_classification == "Not reported" ~"No reportable variant(s) detected"))
+
+stopifnot(anyNA(tvar_dnadb_cleaned$tvar_headline_result) == FALSE)
+
+```
+
+```{r}
+#| label: export-dnadb-cleaned-results
+
+write_csv(glvar_dnadb_cleaned,
+          paste0(cleaned_folder,
+                 "glvar_dnadb_cleaned.csv"))
+
+```
+
+# Bind data from DNA Database and iGene
+
+```{r}
+#| label: patients-on-both-dbs
+
+igene_nhsno <- c(unique(glvar_igene_extracted$nhsno),
+                 unique(tvar_igene_extracted$nhsno))
+
+dnadb_nhsno <- c(unique(tvar_dnadb_cleaned$nhsno),
+                 unique(glvar_dnadb_cleaned$nhsno))
+
+```
+
+There are `r length(intersect(igene_nhsno, dnadb_nhsno))` patients with results on DNA Database and iGene".
+
+```{r}
+#| label: prepare-igene-data-for-bind
+
+patient_id_df <- samples_tbl |> 
+  select(i_gene_r_no, labno, pathno) |> 
+  collect() |> 
+  rename(rno = i_gene_r_no) |> 
+  filter(!duplicated(rno))
+
+glvar_igene_for_bind <- glvar_igene_extracted |>
+  rename(rno = referral_number) |> 
+  mutate(data_source = "igene",
+         genotype = "") |> 
+  # Add pathology number
+  left_join(patient_id_df,
+            by = "rno",
+            relationship = "many-to-one") |> 
+  relocate(nhsno, labno, rno, pathno, data_source, .before = test_order_date)
+
+stopifnot(nrow(glvar_igene_for_bind) == nrow(glvar_igene_extracted))
+
+tvar_igene_for_bind <- tvar_igene_extracted |> 
+  rename(rno = referral_number) |> 
+  mutate(data_source = "igene",
+         genotype = "") |> 
+  # Add pathology number
+  left_join(patient_id_df,
+            by = "rno",
+            relationship = "many-to-one") |> 
+  relocate(nhsno, labno, rno, pathno, data_source, .before = test_order_date)
+
+stopifnot(nrow(tvar_igene_for_bind) == nrow(tvar_igene_extracted))
+
+```
+
+```{r}
+#| label: prepare-glvar-dnadb-for-bind
+
+glvar_dnadb_for_bind <- glvar_dnadb_cleaned |> 
+  left_join(patient_id_df, 
+            by = "labno",
+            relationship = "many-to-one") |> 
+  mutate(data_source = "dnadb",
+         # Add empty columns for bind
+         test_order_date = NA,
+         test_identifier = NA,
+         glvar_seqv1_state = NA,
+         glvar_seqv1_genomic_coordinates = NA,
+         glvar_seqv1_evidence = NA,
+         glvar_reflex_test = NA,
+         glvar_analyst_comments = NA,
+         glvar_incidental_finding = NA,
+         glvar_panel_coverage = NA,
+         glvar_seqv1_inheritance = NA,
+         glvar_quality_score = NA,
+         glvar_checker_comments = NA,
+         glvar_icnv1_evidence = NA,
+         glvar_icnv1_state = NA,
+         glvar_icnv1_inheritance = NA,
+         glvar_icnv1_genomic_coordinates = NA
+         ) |> 
+  select(
+    # Identifiers
+    nhsno, labno, rno, pathno,
+    # Test information
+    data_source, test_order_date, test_identifier, 
+    # Result information
+    glvar_seqv1_state, glvar_seqv1_genomic_coordinates, glvar_seqv1_evidence, 
+    glvar_reflex_test, glvar_analyst_comments, glvar_headline_result, 
+    glvar_incidental_finding, glvar_panel_coverage, 
+    glvar_seqv1_inheritance, glvar_seqv1_description, 
+    glvar_seqv1_classification, glvar_quality_score, 
+    glvar_checker_comments, glvar_icnv1_classification, 
+    glvar_icnv1_evidence, glvar_icnv1_description, glvar_icnv1_state, 
+    glvar_icnv1_inheritance, glvar_icnv1_genomic_coordinates, genotype)
+
+stopifnot(nrow(glvar_dnadb_for_bind) == nrow(glvar_dnadb_cleaned))
+
+```
+
+```{r}
+#| label: prepare-tvar-dnadb-for-bind
+
+tvar_dnadb_for_bind <- tvar_dnadb_cleaned |> 
+  left_join(patient_id_df, 
+            by = "labno",
+            relationship = "many-to-one") |> 
+  mutate(data_source = "dnadb",
+         test_order_date = NA, 
+         test_identifier = NA, 
+         tvar_analyst_comments = NA, 
+         tvar_failed_hotspots = NA, 
+         tvar_panel_coverage = NA, 
+         tvar_reflex_test = NA, 
+         tvar_quality_score = NA, 
+         tvar_seqv1_genomic_coordinates = NA, 
+         tvar_checker_comments = NA, 
+         tvar_icnv1_classification = NA, 
+         tvar_icnv1_description = NA, 
+         tvar_icnv1_state = NA, 
+         tvar_icnv1_genomic_coordinates = NA, 
+         tvar_seqv2_description = NA, 
+         tvar_seqv2_classification = NA, 
+         tvar_seqv2_state = NA, 
+         tvar_seqv2_genomic_coordinates = NA, 
+         tvar_incidental_finding = NA, 
+         tvar_seqv1_evidence = NA,
+         tvar_sv1_classification = NA,
+         tvar_sv1_evidence = NA,          
+         tvar_sv1_state = NA,
+         tvar_sv1_description = NA,       
+         tvar_sv1_genomic_coordinates = NA) |> 
+  select(nhsno, labno, rno, pathno,
+         data_source, test_order_date, 
+         test_identifier, tvar_panel_coverage, tvar_failed_hotspots, 
+         tvar_quality_score, tvar_headline_result, tvar_reflex_test, 
+         tvar_analyst_comments, tvar_checker_comments, tvar_seqv2_state, 
+         tvar_seqv1_state, tvar_seqv1_classification, tvar_seqv2_description,
+         tvar_seqv2_classification, tvar_seqv1_description, 
+         tvar_seqv1_genomic_coordinates, tvar_icnv1_genomic_coordinates, 
+         tvar_icnv1_description, tvar_icnv1_classification, 
+         tvar_icnv1_state, tvar_incidental_finding, 
+         tvar_seqv2_genomic_coordinates, tvar_seqv1_evidence, 
+         tvar_sv1_classification, tvar_sv1_evidence, tvar_sv1_state, 
+         tvar_sv1_description, tvar_sv1_genomic_coordinates, genotype)
+
+stopifnot(nrow(tvar_dnadb_for_bind) == nrow(tvar_dnadb_cleaned))
+
+```
+
+```{r}
+#| label: bind-and-annotate-glvar-data
+
+glvar_dnadb_igene_bound <- rbind(glvar_dnadb_for_bind,
+                                    glvar_igene_for_bind)
+
+gl_genes <- c("BRCA1", "BRCA2", "BRIP1", "PALB2", "RAD51D", 
+              "MSH2", "MSH6", "CHEK2")
+
+gl_gene_regex <- paste0(".*(", paste0(gl_genes, collapse = "|"), ").*")
+
+glvar_dnadb_igene_bound_genes <- glvar_dnadb_igene_bound |> 
+  mutate(gl_snv_gene = str_extract(string = glvar_seqv1_description,
+                                 pattern = gl_gene_regex,
+                                 group = 1),
+       gl_cnv_gene = str_extract(string = glvar_icnv1_description,
+                                 pattern = gl_gene_regex,
+                                 group = 1),
+       gl_gene = case_when(
+         is.na(gl_snv_gene) & !is.na(gl_cnv_gene) ~gl_cnv_gene,
+         !is.na(gl_snv_gene) & is.na(gl_cnv_gene) ~gl_snv_gene
+       ),
+       glvar_seqv1_classification = case_when(
+         # Likely pathogenic reduced penetrance
+         glvar_seqv1_description == "NM_000059.3(BRCA2):c.9302T>G p.(Leu3101Arg)" ~"Likely pathogenic",
+         TRUE ~glvar_seqv1_classification
+       ),
+       # Add column to summarise SNV and CNV classifications
+       glvar_headline_classification = case_when(
+         !is.na(glvar_seqv1_classification) ~glvar_seqv1_classification,
+         !is.na(glvar_icnv1_classification) ~glvar_icnv1_classification,
+         TRUE ~NA))
+
+samples_with_gl_variants <- glvar_dnadb_igene_bound_genes |> 
+  filter(glvar_headline_result == "Reportable variant(s) detected")
+
+stopifnot(anyNA(samples_with_gl_variants$gl_gene) == FALSE)
+stopifnot(anyNA(samples_with_gl_variants$glvar_headline_classification) == FALSE)
+
+```
+
+```{r}
+#| label: filter-glvar-orpp
+
+glvar_dnadb_igene_bound_orpp <- glvar_dnadb_igene_bound_genes |> 
+  filter(!is.na(nhsno)) |> 
+  mutate(glvar_headline_result = factor(glvar_headline_result,
+                                        levels = c("Reportable variant(s) detected",
+                                                   "No reportable variant(s) detected",
+                                                   "Analysis failed (see quality score)"))) |> 
+  arrange(nhsno, glvar_headline_result) |> 
+  filter(!duplicated(nhsno))
+
+stopifnot(anyNA(glvar_dnadb_igene_bound_orpp$nhsno) == FALSE)
+
+# Some samples have multiple results with inconclusive results. 
+# Check that the conclusive results have been selected for 3 samples.
+
+stopifnot(nrow(glvar_dnadb_igene_bound_orpp |> 
+                 filter(labno == "24024388" &
+                          glvar_headline_result == "No reportable variant(s) detected")) == 1)
+
+stopifnot(nrow(glvar_dnadb_igene_bound_orpp |> 
+  filter(rno == "R24-1J8H" &
+           glvar_headline_result == "No reportable variant(s) detected")) == 1)
+
+stopifnot(nrow(glvar_dnadb_igene_bound_orpp |> 
+                 filter(labno == "24030686" &
+                          glvar_headline_result == "Reportable variant(s) detected")) == 1)
+
+```
+
+```{r}
+#| label: bind-and-annotate-tlvar-data
+
+tvar_dnadb_igene_bound <- rbind(tvar_dnadb_for_bind,
+                                tvar_igene_for_bind)
+
+tvar_genes <- c("BRCA1", "BRCA2", "KRAS", "BRAF", "ERBB2")
+
+tvar_gene_regex <- paste0(".*(", paste0(tvar_genes, collapse = "|"), ").*")
+
+tvar_dnadb_igene_bound_genes <- tvar_dnadb_igene_bound |> 
+  mutate(
+    tvar_gene = str_extract(string = tvar_seqv1_description,
+                            pattern = tvar_gene_regex,
+                            group = 1),
+    tvar_headline_classification = case_when(
+      !is.na(tvar_seqv1_classification) ~tvar_seqv1_classification,
+      !is.na(tvar_icnv1_classification) ~tvar_icnv1_classification,
+      TRUE ~NA
+    ),
+    tvar_seqv1_percent = parse_number(tvar_seqv1_state))
+
+samples_with_t_variants <- tvar_dnadb_igene_bound_genes |> 
+  filter(!is.na(tvar_seqv1_description))
+
+stopifnot(anyNA(samples_with_t_variants$tvar_gene) == FALSE)
+stopifnot(anyNA(samples_with_t_variants$tvar_seqv1_percent) == FALSE)
+
+```
+
+```{r}
+#| label: filter-tvar-orpp
+
+tvar_dnadb_igene_bound_orpp <- tvar_dnadb_igene_bound_genes |> 
+  filter(!is.na(nhsno)) |> 
+  mutate(tvar_headline_result = factor(tvar_headline_result,
+                                        levels = c("Reportable variant(s) detected",
+                                                   "No reportable variant(s) detected",
+                                                   "Analysis failed (see quality score)"))) |> 
+  arrange(nhsno, tvar_headline_result) |> 
+  filter(!duplicated(nhsno)) 
+
+```
+
+```{r}
+#| label: igene-dnadb-bind-checks
+#| include: FALSE
+
+stopifnot(nrow(tvar_dnadb_igene_bound_orpp |> 
+       filter(labno == "24009901" &
+                tvar_headline_result == "No reportable variant(s) detected")) == 1)
+
+stopifnot(nrow(tvar_dnadb_igene_bound_orpp |> 
+                 filter(rno == "R24-1E83" &
+                          tvar_headline_result == "Reportable variant(s) detected")) == 1)
+
+stopifnot(nrow(tvar_dnadb_igene_bound_orpp |> 
+                 filter(labno == "23060393" &
+                          tvar_headline_result == "Reportable variant(s) detected")) == 1)
+
+```
+
+```{r}
+#| label: export-igene-dnadb-data
+
+write_csv(glvar_dnadb_igene_bound_orpp,
+          paste0(cleaned_folder,
+                 "glvar_dnadb_igene_bound_orpp.csv"))
+
+write_csv(tvar_dnadb_igene_bound_orpp,
+          paste0(cleaned_folder,
+                 "tvar_dnadb_igene_bound_orpp.csv"))
+
+```
+
+# Join data together
+
+Join GI and glvar by NHS number
+
+```{r}
+#| label: join-gi-glvar-nhsno
+
+gi_csv_cleaned_orpp_for_join <- gi_csv_cleaned_orpp |> 
+  rename(gi_labno = labno,
+         gi_pathno = pathno) |> 
+  select(nhsno, rno, gi_labno, gi_pathno, firstname, surname, lga, lpc, score,
+         status, gi_confidence)
+
+glvar_dnadb_igene_bound_orpp_for_join <- glvar_dnadb_igene_bound_orpp |> 
+  rename(glvar_labno = labno,
+         glvar_genotype = genotype)
+
+gi_glvar_joined <- gi_csv_cleaned_orpp_for_join |> 
+  inner_join(glvar_dnadb_igene_bound_orpp_for_join,
+            by = "nhsno",
+            relationship = "one-to-one") 
+
+```
+
+Join GI and tumour variant data
+
+```{r}
+#| label: join-gi-tvar
+
+tvar_dnadb_igene_bound_orpp_for_join <- tvar_dnadb_igene_bound_orpp |> 
+  rename(tvar_labno = labno,
+         tvar_genotype = genotype,
+         tvar_pathno = pathno)
+
+gi_tvar_joined_by_labno <- gi_csv_cleaned_orpp_for_join |> 
+  inner_join(tvar_dnadb_igene_bound_orpp_for_join,
+             join_by("gi_labno" == "tvar_labno"),
+             relationship = "one-to-one") 
+
+gi_tvar_joined_by_nhsno <- gi_csv_cleaned_orpp_for_join |> 
+  inner_join(tvar_dnadb_igene_bound_orpp_for_join,
+             by = "nhsno",
+             relationship = "one-to-one") 
+
+gi_tvar_joined_by_rno <- gi_csv_cleaned_orpp_for_join |> 
+  inner_join(tvar_dnadb_igene_bound_orpp_for_join,
+             by = "rno",
+             relationship = "one-to-one") 
+
+gi_tvar_joined_by_pathno <- gi_csv_cleaned_orpp_for_join |> 
+  filter(!is.na(gi_pathno)) |> 
+  inner_join(tvar_dnadb_igene_bound_orpp_for_join |> 
+               filter(!is.na(tvar_pathno)),
+             join_by("gi_pathno" == "tvar_pathno"),
+             relationship = "one-to-one") 
+
+```
+
+Join tvar and glvar data
+
+```{r}
+#| label: join-tvar-glvar
+#| include: FALSE
+
+glvar_tvar_joined <- glvar_dnadb_igene_bound_orpp |> 
+  inner_join(tvar_dnadb_igene_bound_orpp,
+             by = "nhsno",
+             relationship = "one-to-one")
+
+```
+
+```{r}
+#| label: export-joined-data
+#| include: FALSE
+
+write_csv(gi_glvar_joined,
+          paste0(joined_folder,
+                 "gi_glvar_joined.csv"))
+
+write_csv(gi_tvar_joined_by_labno,
+          paste0(joined_folder,
+                 "gi_tvar_joined_by_labno.csv"))
+
+write_csv(gi_tvar_joined_by_nhsno,
+          paste0(joined_folder,
+                 "gi_tvar_joined_by_nhsno.csv"))
+
+write_csv(gi_tvar_joined_by_rno,
+          paste0(joined_folder,
+                 "gi_tvar_joined_by_rno.csv"))
+
+write_csv(glvar_tvar_joined,
+          paste0(joined_folder,
+                 "glvar_tvar_joined.csv"))
+
+```
+
+# Final results
+
+```{r}
+#| label: tbl-gi-results
+#| echo: FALSE
+#| tbl-cap: "All SeqOne GI results"
+
+tbl_gi_orps <- gi_csv_cleaned_orps |> 
+  group_by(status) |> 
+  summarise(n = n()) |> 
+  mutate("Percentage samples (%)" = (round((n / sum(n))*100, 1))) |> 
+  rename("Samples" = n)
+
+tbl_gi_orpp <- gi_csv_cleaned_orpp |> 
+  group_by(status) |> 
+  summarise(n = n()) |> 
+  mutate("Percent (%)" = (round((n / sum(n))*100, 1))) |> 
+  rename("Patients" = n)
+
+tbl_gi_results <- tbl_gi_orps |> 
+  left_join(tbl_gi_orpp, by = "status") |> 
+  rename("GI status" = status) |> 
+  adorn_totals()
+
+knitr::kable(tbl_gi_results)
+
+knitr::kable(tbl_gi_orpp |> 
+               rename("GI status" = status) |> 
+               adorn_totals())
+
+```
+
+```{r}
+#| label: tbl-gi-glvar-all-results
+#| tbl-cap: "Patients with GI and germline variant results"
+#| echo: FALSE
+
+glvar_all_results <- gi_glvar_joined |> 
+  group_by(data_source) |> 
+  count() |> 
+  rename("Joined by NHS number" = n,
+         "NGS result data source" = data_source) |> 
+  adorn_totals()
+
+knitr::kable(glvar_all_results)
+
+```
+
+```{r}
+#| label: tbl-gi-tvar-all-results
+#| tbl-cap: "Patients with GI and tumour variant results"
+#| echo: FALSE
+
+tvar_labno_all_results <- gi_tvar_joined_by_labno |> 
+  group_by(data_source) |> 
+  count() |> 
+  rename("Joined by DNA number" = n)
+
+tvar_nhsno_all_results <- gi_tvar_joined_by_nhsno |> 
+  group_by(data_source) |> 
+  count() |> 
+  rename("Joined by NHS number" = n)
+
+tvar_rno_all_results <- gi_tvar_joined_by_rno |> 
+  group_by(data_source) |> 
+  count() |> 
+  rename("Joined by R number" = n)
+
+tvar_all_results <- tvar_labno_all_results |> 
+  inner_join(tvar_rno_all_results, by = "data_source") |> 
+  inner_join(tvar_nhsno_all_results, by = "data_source") |> 
+  rename("Data source" = data_source) |> 
+  adorn_totals()
+
+knitr::kable(tvar_all_results)
+
+```
+
+```{r}
+#| label: conclusive-results
+
+gi_glvar_joined_conclusive <- gi_glvar_joined |> 
+  filter(status != "Non-conclusive" &
+           glvar_headline_result %in% c("No reportable variant(s) detected",
+                                        "Reportable variant(s) detected"))
+
+gi_tvar_joined_conclusive <- gi_tvar_joined_by_labno |> 
+  filter(status != "Non-conclusive" &
+           tvar_headline_result %in% c("No reportable variant(s) detected",
+                                        "Reportable variant(s) detected"))
+
+```
+
+```{r}
+#| label: tbl-gi-glvar
+#| echo: FALSE
+#| tbl-cap: "GI results and germline testing results"
+
+tbl_gi_glvar <- gi_glvar_joined |>
+  group_by(status, glvar_headline_result) |> 
+  count() |> 
+  rename("GI status" = status,
+         "Germline result" = glvar_headline_result,
+         "Patients" = n) |> 
+  adorn_totals()
+
+knitr::kable(tbl_gi_glvar)
+
+```
+
+```{r}
+#| label: tbl-gi-tvar
+#| tbl-cap: "GI results and tumour testing results (joined by DNA number)"
+#| echo: FALSE
+
+tbl_gi_tvar <- gi_tvar_joined_by_labno |> 
+  group_by(status, tvar_headline_result) |> 
+  count() |> 
+  rename("Patients" = n,
+         "Tumour result" = tvar_headline_result,
+         "GI status" = status) |> 
+  adorn_totals()
+
+knitr::kable(tbl_gi_tvar)
+
+```
+
+```{r}
+#| label: fig-gi-gl-results-variants
+#| echo: FALSE
+#| fig-cap: "GI results for patients with reportable germline variants"
+
+variant_class_colours <- c("#FF3300",
+                           "#FF9900",
+                           "#CCCCCC")
+
+gi_glvar_plot <- gi_glvar_joined_conclusive |> 
+  filter(glvar_headline_result == "Reportable variant(s) detected") |> 
+  ggplot(aes(x = gl_gene, y = score)) +
+  geom_jitter(shape = 21, 
+              size = 2,
+              width = 0.1, 
+              alpha = 0.8,
+              aes(fill = glvar_headline_classification)) +
+  theme_bw() +
+  scale_fill_manual(values = variant_class_colours) +
+  labs(x = "Germline gene",
+       fill = "Variant classification",
+       y = "SeqOne GI score")
+
+gi_glvar_plot
+
+```
+
+```{r}
+#| label: fig-gi-tvar-results-variants
+#| include: FALSE
+#| fig-cap: "GI results for patients with somatic BRCA1/2 variants"
+
+gi_tvar_plot <- gi_tvar_joined_conclusive |> 
+  filter(tvar_headline_result == "Reportable variant(s) detected") |>
+  filter(tvar_gene %in% c("BRCA1","BRCA2")) |> 
+  ggplot(aes(x = tvar_gene,
+             y = score)) +
+  geom_jitter(shape = 21, aes(fill = tvar_headline_classification),
+              width = 0.2) +
+  theme_bw() +
+  scale_fill_manual(values = variant_class_colours) +
+  geom_hline(yintercept = 0.5, linetype = "dashed") +
+  labs(x = "Tumour gene", y = "SeqOne GI score",
+       fill = "Variant classification")
+
+gi_tvar_plot
+
+```
+
+```{r}
+#| label: tbl-gi-neg-gl-pos
+#| tbl-cap: "GI negative samples with germline variants"
+#| echo: FALSE
+
+glvar_neg_gi <- gi_glvar_joined |> 
+  filter(glvar_headline_result == "Reportable variant(s) detected") |> 
+  filter(status != "Non-conclusive") |> 
+  filter(score < 0.5) |> 
+  filter(glvar_seqv1_classification %in% c("Pathogenic", "Likely pathogenic"))
+  
+knitr::kable(glvar_neg_gi |> 
+               select(rno.x, gi_labno, score, 
+                      gl_gene) |> 
+               mutate(score = round(score, 2)) |> 
+               arrange(gl_gene))
+
+```
+
+```{r}
+#| label: tbl-tvar-neg-gi
+#| include: FALSE
+#| tbl-cap: "GI negative samples with tumour BRCA variants"
+
+tvar_neg_gi <- gi_tvar_joined_conclusive |> 
+  filter(tvar_headline_result == "Reportable variant(s) detected") |>
+  filter(tvar_gene %in% c("BRCA1","BRCA2")) |> 
+  filter(score < 0.5) |> 
+  select(surname, score, tvar_seqv1_description) |> 
+               mutate(score = round(score, 2))
+
+knitr::kable(tvar_neg_gi)
+
+```
+
+```{r}
+#| label: glvar-vs-tvar
+#| include: FALSE
+
+glvar_tvar_brca <- glvar_tvar_joined |> 
+  filter(!is.na(gl_gene) &
+           glvar_seqv1_classification %in% c("Pathogenic",
+                                             "Likely pathogenic") &
+           tvar_headline_result == "Reportable variant(s) detected") |> 
+  select(nhsno, labno.x, labno.y, rno.x, rno.y, gl_gene, glvar_seqv1_description,
+         tvar_seqv1_description,
+         glvar_seqv1_classification,
+         tvar_seqv1_classification) 
+
+```
+
+```{r}
+#| label: fig-gi-glvar-histogram
+#| echo: FALSE
+#| fig-cap: "GI score histogram stratified by germline BRCA status"
+
+gi_glvar_histogram <- gi_glvar_joined_conclusive |> 
+  filter(gl_gene %in% c("BRCA1", "BRCA2", NA)) |> 
+  ggplot(aes(x = score, y = )) +
+  geom_histogram(binwidth = 0.01) +
+  facet_wrap(~glvar_headline_result, nrow = 2) +
+  theme_bw() +
+  theme(legend.position = "bottom") +
+  labs(x = "SeqOne GI score", y = "Number of patients")
+
+gi_glvar_histogram
+
+```
+
+```{r}
+#| label: fig-gi-tvar-histogram
+#| echo: FALSE
+#| fig-cap: "GI score histogram stratified by tumour BRCA status"
+
+gi_tvar_histogram <- gi_tvar_joined_conclusive |> 
+  filter(tvar_gene %in% c("BRCA1", "BRCA2", NA)) |> 
+  ggplot(aes(x = score, y = )) +
+  geom_histogram(binwidth = 0.01) +
+  facet_wrap(~tvar_headline_result, nrow = 2) +
+  theme_bw() +
+  theme(legend.position = "bottom") +
+  labs(x = "SeqOne GI score", y = "Number of patients",
+       title = "GI score and tumour BRCA1/2 results",
+       fill = "")
+
+gi_tvar_histogram
+
+```
+
+```{r}
+#| label: gi-tvar-percent
+#| echo: FALSE
+#| fig-cap: "GI score versus tumour BRCA variant percentage"
+
+gi_tvar_percent_plot <- gi_tvar_joined_conclusive |> 
+  filter(tvar_gene %in% c("BRCA1", "BRCA2")) |> 
+  ggplot(aes(x = tvar_seqv1_percent, y = score)) +
+  geom_point(shape = 21, aes(fill = tvar_headline_classification)) +
+  scale_fill_manual(values = variant_class_colours) +
+  xlim(0, 100) +
+  theme_bw() +
+  theme(legend.position = "bottom") +
+  labs(fill = "",
+       x = "Tumour variant percent",
+       y = "SeqOne GI score")
+
+gi_tvar_percent_plot
+
+```
+
+```{r}
+#| label: patients-over-time
+#| echo: FALSE
+#| fig-cap: "Patients tested on SeqOne service"
+
+gi_data_sum <- gi_csv_cleaned_orpp |> 
+  mutate(month = floor_date(date, unit = "month")) |> 
+  group_by(month) |> 
+  summarise(total = n()) |> 
+  mutate(cum_total = cumsum(total))
+
+seqone_timeplot <- ggplot(gi_data_sum, aes(x = month, y = cum_total)) +
+  scale_x_datetime(date_breaks = "1 month",
+                   date_labels = "%b-%Y") +
+  scale_y_continuous(limits = c(0, max(gi_data_sum$cum_total)+50), 
+                     breaks = seq(0, max(gi_data_sum$cum_total)+50, by = 100)) +
+  geom_line() +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, 
+                                   vjust = 0.9,
+                                   hjust = 0.9)) +
+  labs(x = "", y = "Cumulative patients") 
+
+seqone_timeplot
+
+```
+
+```{r}
+#| label: gi-score-histogram
+#| echo: FALSE
+
+safe_blue <- "#88CCEE"
+safe_red <- "#CC6677"
+safe_grey <- "#888888"
+
+pooled_sd <- 0.04
+
+gi_csv_cleaned_orpp |> 
+  filter(status != "Non-conclusive") |> 
+  ggplot(aes(x = score, y = )) +
+  geom_histogram(binwidth = 0.01, aes(fill = status),
+                 colour = "black") +
+  scale_fill_manual(values = c(safe_blue, safe_red)) +
+  theme_bw() +
+  geom_vline(xintercept = 0.5, linetype = "dashed") +
+  coord_cartesian(ylim = c(0, 40)) +
+  theme(legend.position = "bottom") +
+  labs(x = "SeqOne GI score",
+       y = "Patients",
+       title = "Clinical service GI scores",
+       fill = "GI status")
+
+```
