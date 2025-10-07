@@ -19,7 +19,7 @@ library(tidyverse)
 
 # Introduction
 
-This is a data audit for the ovarian cancer testing service.
+This is a data audit for the ovarian cancer testing service which will provide data for Dr Rob Morgan.
 
 # Find SeqOne csv files
 
@@ -80,5 +80,13 @@ gi_ids <- collect_dnadb_ids_by_labno(labno_vector = gi_labnos)
 
 Find tBRCA results
 
+```{r}
+
+gi_ids
+
+
+
+
+```
 
 
