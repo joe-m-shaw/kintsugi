@@ -54,21 +54,23 @@ library(kintsugi)
 
 -   **ws:** the worksheet the sample was tested on at the Manchester Genomic Laboratory Hub.
     The format is WS followed by 6 digits.
-    
+
 ## Verbs
 
 I have tried to use consistent verbs to label dataframes.
 These verbs are based on their usage in the `dplyr` package.
 
--   **mutate:** add on useful information.
+-   **mutate:** add on useful information to a dataframe.
 
--   **bind:** bind together two (or more) large datasets, using the rbind function.
+-   **bind:** bind together two (or more) large datasets, using the `rbind` or `purrr:list_rbind()` function.
 
 -   **clean:** filter a table, removing duplicates or tidying up free-text columns
 
 -   **collect:** pull information out of a database.
 
 -   **join:** bring two tables together using a common key variable
+
+-   **read:** reading information from a single file
 
 ## Projects
 

@@ -70,16 +70,21 @@ file.copy(from = gi_ws_filepaths,
 
 ```{r}
 #| label: collate-seqone-data
-#| warning: FALSE
 
 seqone_csv_filepaths <- list.files(path = seqone_gi_csv_folder,
                                    full.names = TRUE,
                                    recursive = FALSE,
                                    pattern = "hrd-results.*csv"
                                    )
+seqone_files_with_nas <- c("WS144728_24045060 hrd-results.csv",
+                           "WS144728_24044787 hrd-results.csv")
 
-gi_ws_collated <- seqone_csv_filepaths |> 
-  purrr::map(\(seqone_csv_filepaths) read_seqone_gi_csv(seqone_csv_filepaths)) |> 
+seqone_csv_filepaths_na_removed <- seqone_csv_filepaths[-grep(
+  paste(seqone_files_with_nas, collapse = "|"), 
+  seqone_csv_filepaths)]
+
+gi_ws_collated <- seqone_csv_filepaths_na_removed |> 
+  purrr::map(\(seqone_csv_filepaths_na_removed) read_seqone_gi_csv(seqone_csv_filepaths_na_removed)) |> 
   purrr::list_rbind() |> 
   mutate(labno = str_extract(string = sample,
                              pattern = "\\d{8}"),
