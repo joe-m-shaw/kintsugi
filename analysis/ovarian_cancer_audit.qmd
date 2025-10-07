@@ -21,11 +21,27 @@ library(tidyverse)
 
 This is a data audit for the ovarian cancer testing service which will provide data for Dr Rob Morgan.
 
-# Find SeqOne csv files
+# Get data from SeqOne csv files
+
+```{r}
+#| label: filepaths
+
+ovarian_cancer_folder <- "S:/central shared/Genetics/Mol_Shared/Development.Team/kintsugi_ovarian_cancer/"
+
+initial_folder <- paste0(ovarian_cancer_folder, "01_initial/")
+
+cleaned_folder <- paste0(ovarian_cancer_folder, "02_cleaned/")
+
+joined_folder <- paste0(ovarian_cancer_folder, "03_joined/")
+
+seqone_gi_csv_folder <- paste0(initial_folder, "seqone_gi_csvs/")
+
+```
 
 Collate SeqOne csv data
 
 ```{r}
+#| label: collate-seqone-data
 
 gi_ws_info <- collect_seqone_gi_worksheets()
 
@@ -37,13 +53,7 @@ gi_ws_filepaths <- gi_ws_list |>
   purrr::flatten()
 
 file.copy(from = gi_ws_filepaths,
-          to = "S:/central shared/Genetics/Mol_Shared/Development.Team/kintsugi_ovarian_cancer/01_initial/seqone_gi_csvs/")
-
-ovarian_cancer_folder <- "S:/central shared/Genetics/Mol_Shared/Development.Team/kintsugi_ovarian_cancer/"
-
-initial_folder <- paste0(ovarian_cancer_folder, "01_initial/")
-
-seqone_gi_csv_folder <- paste0(initial_folder, "seqone_gi_csvs/")
+          to = seqone_gi_csv_folder)
 
 seqone_csv_filepaths <- list.files(path = seqone_gi_csv_folder,
                                    full.names = TRUE,
@@ -55,38 +65,285 @@ gi_ws_collated <- seqone_csv_filepaths |>
   purrr::map(\(seqone_csv_filepaths) read_seqone_gi_csv(seqone_csv_filepaths)) |> 
   purrr::list_rbind() |> 
   mutate(labno = str_extract(string = sample,
-                             pattern = "\\d{8}"))
+                             pattern = "\\d{8}"),
+         worksheet = str_extract(string = sample,
+                                 pattern = "(WS[0-9]{6})_(\\d{8})",
+                                 group = 1))
 
 ```
 
-Here is a plot of the collated SeqOne data.
+Get patient information from DNA Database.
 
 ```{r}
-#| echo: FALSE
-
-ggplot(gi_ws_collated, aes(x = lga,
-                           y = score)) +
-  geom_point()
-
-```
-
-```{r}
+#| label: get-gi-patient-info
 
 gi_labnos <- unique(gi_ws_collated$labno)
 
 gi_ids <- collect_dnadb_ids_by_labno(labno_vector = gi_labnos)
 
+gi_csv_collated_patient_info <- gi_ws_collated |> 
+  left_join(gi_ids, by = "labno",
+            # One lab number can have multiple GI results, but should only
+            # have one NHS number
+            relationship = "many-to-one") |> 
+  relocate(labno, i_gene_r_no, i_gene_s_no,
+           surname, firstname, nhsno, pathno) |> 
+  rename(rno = i_gene_r_no,
+         sno = i_gene_s_no)
+
+stopifnot(anyNA(gi_csv_collated_patient_info$firstname) == FALSE)
+
 ```
 
-Find tBRCA results
+Annotate validation data
 
 ```{r}
+#| label: annotate-validation-data
 
-gi_ids
+DOC6192_validation_worksheets <- c("WS133557", "WS134687", "WS134928", 
+                                   "WS135001", "WS135498")
 
+DOC6255_validation_worksheets <- c("WS136827", "WS138201", "WS138439", 
+                                   "WS138627")
 
+DOC6588_validation_worksheets <- c("WS147582", "WS149085", "WS149086")
 
+validation_worksheets <- c(DOC6192_validation_worksheets,
+                           DOC6255_validation_worksheets,
+                           DOC6588_validation_worksheets)
+
+gi_csv_collated_validation_info <- gi_csv_collated_patient_info |> 
+  mutate(service_validation = case_when(
+    worksheet %in% validation_worksheets ~"validation",
+    # 2 validation samples were on WS138061. The other samples on this
+    # worksheet were live clinical samples
+    (worksheet == "WS138061" & labno %in% c("23047082", "23053359")) ~"validation",
+    TRUE ~"service"
+  ),
+  patient_non_patient = case_when(
+    surname %in% c("Seraseq", "GenQA") ~"non-patient",
+    TRUE ~"patient"
+  ),
+  full_name = paste0(firstname, " ", surname))
+
+stopifnot(anyNA(gi_csv_collated_validation_info$service_validation) == FALSE)
+stopifnot(anyNA(gi_csv_collated_validation_info$patient_non_patient) == FALSE)
+
+# Check name fields do not contain numbers
+stopifnot(length(grep(pattern = "[[:digit:]]",
+     gi_csv_collated_validation_info$full_name)) == 0)
 
 ```
+
+Filter to one result per patient
+
+```{r}
+#| label: filter-one-result-per-patient
+#| include: FALSE
+
+gi_csv_cleaned_orpp <- gi_csv_collated_validation_info |> 
+  filter(!is.na(nhsno) &
+           service_validation == "service" &
+           patient_non_patient == "patient") |> 
+  # Some patient have multiple samples. To select samples with conclusive 
+  # results (positive or negative statuses), arrange by NHS number and 
+  # status and then
+  # remove NHS number duplicates
+  arrange(nhsno, status) |> 
+  filter(!duplicated(nhsno))
+
+stopifnot(unique(gi_csv_cleaned_orpp$patient_non_patient) == "patient")
+stopifnot(unique(gi_csv_cleaned_orpp$service_validation) == "service")
+stopifnot(anyDuplicated(gi_csv_cleaned_orpp$labno) == 0)
+stopifnot(anyDuplicated(gi_csv_cleaned_orpp$nhsno) == 0)
+
+# Check the lab number with a conclusive result has been selected for 
+# patients with multiple samples including non-conclusive results
+stopifnot(nrow(gi_csv_cleaned_orpp[gi_csv_cleaned_orpp$labno == "24044667" &
+                           gi_csv_cleaned_orpp$status == "Negative",]) == 1)
+
+stopifnot(nrow(gi_csv_cleaned_orpp[gi_csv_cleaned_orpp$labno == "24032495" &
+                           gi_csv_cleaned_orpp$status == "Negative",]) == 1)
+
+stopifnot(nrow(gi_csv_cleaned_orpp[gi_csv_cleaned_orpp$labno == "24045338" &
+                          gi_csv_cleaned_orpp$status == "Negative",]) == 1)
+
+stopifnot(nrow(gi_csv_cleaned_orpp[gi_csv_cleaned_orpp$labno == "24064756" &
+                          gi_csv_cleaned_orpp$status == "Positive",]) == 1)
+
+stopifnot(nrow(gi_csv_cleaned_orpp[gi_csv_cleaned_orpp$labno == "25030664" &
+                          gi_csv_cleaned_orpp$status == "Positive",]) == 1)
+
+same_name_df <- gi_csv_cleaned_orpp |> 
+  filter(duplicated(full_name, fromLast = TRUE) |
+           duplicated(full_name, fromLast = FALSE)) |> 
+  select(firstname, surname, nhsno)
+
+```
+
+Filter to one result per sample.
+
+```{r}
+#| label: filter-one-result-per-sample
+
+gi_csv_cleaned_orps <- gi_csv_collated_validation_info |> 
+  filter(service_validation == "service" &
+           patient_non_patient == "patient") |> 
+  arrange(labno, status) |> 
+  filter(!duplicated(labno))
+
+stopifnot(anyDuplicated(gi_csv_cleaned_orps$labno) == 0)
+
+stopifnot(nrow(gi_csv_cleaned_orps[gi_csv_cleaned_orps$labno == "24045060" &
+                      gi_csv_cleaned_orps$status == "Positive",]) == 1)
+
+```
+
+Export data
+
+```{r}
+#| label: export-data
+
+write_csv(gi_csv_collated_validation_info,
+          paste0(cleaned_folder,
+                 "gi_csv_cleaned.csv"))
+
+write_csv(gi_csv_cleaned_orpp,
+          paste0(cleaned_folder,
+                 "gi_csv_cleaned_orpp.csv"))
+
+write_csv(gi_csv_cleaned_orps,
+          paste0(cleaned_folder,
+                 "gi_csv_cleaned_orps.csv"))
+
+```
+
+# Get data from DNA Database
+
+```{r}
+#| label: find-all-patient-lab-numbers
+
+gi_nhsnos <- gi_csv_cleaned_orpp$nhsno
+
+samples_tbl <- connect_to_lazy_tbl("Samples")
+
+labno_df <- samples_tbl |> 
+  filter(nhsno %in% gi_nhsnos) |> 
+  select(labno, nhsno) |> 
+  collect()
+
+stopifnot(length(setdiff(unique(labno_df$nhsno), gi_nhsnos)) == 0)
+stopifnot(anyNA.data.frame(labno_df) == FALSE)
+
+labno_query <- unique(labno_df$labno)
+
+```
+
+There are SeqOne results for `r length(gi_nhsnos)` unique patients, based on their NHS numbers.
+The script then queries the DNA Database to check for all other DNA numbers which are linked to these NHS numbers.
+`r nrow(labno_df)` different DNA numbers have been found.
+
+```{r}
+#| label: result-tbl
+
+resultsaccess_tbl <- connect_to_lazy_tbl("ResultsAccess") |> 
+  rename(pcrid = resultsid)
+
+dnadb_results <- resultsaccess_tbl |> 
+  filter(labno %in% labno_query) |> 
+  select(labno, genodate, pcrid, test, genotype, genotype2,
+         genocomm) |> 
+  collect()
+
+stopifnot(nrow(dnadb_results) != 0)
+
+```
+
+## Germline BRCA testing
+
+```{r}
+#| label: identify-glvar-results
+
+icp_grep_strings <- unique(grep(pattern = "hs2(\\s|)icp", 
+            x = dnadb_results$test, 
+            ignore.case = TRUE, 
+            value = TRUE))
+
+icp_test_strings <- c(icp_grep_strings,
+                      "NGS SSXT ICP",
+                      "ICP PANEL",
+                      "SSXT ICP NGS",
+                      "ICP SSXT NGS",
+                      "Panel re-analysis of 24043064 from WS144546",
+                      "NGS SSXT ICPv4",
+                      "SSXTHS2 ICPv4",
+                      "ICPv4 NGS SSXT HS2")
+
+glvar_dnadb_results <- dnadb_results |> 
+  filter(test %in% icp_test_strings) |> 
+  left_join(labno_df, by = "labno") |> 
+  relocate(nhsno)
+
+```
+
+The script looks for germline *BRCA* testing results based on the "test" column in the DNA Database results table.
+The "test" column is free type, so many different versions of the test have been written.
+The script has found `r length(icp_test_strings)` different ways that germline *BRCA* testing has been described, which are listed below.
+In total, `r nrow(glvar_dnadb_results)` germline results have been found.
+These results range from
+`r format.Date(x = min(glvar_dnadb_results$genodate), format = "%d %B %Y")` to
+`r format.Date(x = max(glvar_dnadb_results$genodate), format = "%d %B %Y")`.
+
+```{r}
+#| label: tbl-icp-test-strings
+#| echo: FALSE
+
+knitr::kable(glvar_dnadb_results |> 
+               filter(!duplicated(test)) |> 
+               select(test) |> 
+               arrange(test))
+
+```
+
+## Tumour BRCA testing
+
+```{r}
+#| label: identify-tbrca-results
+
+pansolid_grep_strings <- unique(grep(pattern = "seq\\span", 
+                                     x = dnadb_results$test, 
+                                     ignore.case = TRUE, 
+                                     value = TRUE))
+
+pansolid_test_strings <- c(pansolid_grep_strings,
+                           "NGS Pansolid", "NGS PanSolid QIAseq")
+
+tvar_dnadb_results <- dnadb_results |> 
+  filter(test %in% pansolid_test_strings) |> 
+  left_join(labno_df, by = "labno") |> 
+  relocate(nhsno)
+
+```
+
+The script now does the same thing for tumour *BRCA* results.
+There are `r length(pansolid_test_strings)` different ways that tumour *BRCA* testing has been described, and 
+`r nrow(tvar_dnadb_results)` results have been found, ranging from
+`r format.Date(x = min(tvar_dnadb_results$genodate), format = "%d %B %Y")` to
+`r format.Date(x = max(tvar_dnadb_results$genodate), format = "%d %B %Y")`.
+
+```{r}
+#| label: export-dnadb-glvar-tvar-data
+#| include: FALSE
+
+write_csv(glvar_dnadb_results,
+          paste0(initial_folder,
+            "glvar_dnadb_extracted.csv"))
+
+write_csv(tvar_dnadb_results,
+          paste0(initial_folder,
+            "tvar_dnadb_extracted.csv"))
+
+```
+
 
 
