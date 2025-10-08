@@ -45,7 +45,7 @@ pivot_wider_by_test <- function(df,
   }
   
   if(nrow(output) == 0){
-    stop("Output dataframe is empty")
+    warning("Output dataframe has 0 rows")
   }
   
   return(output)

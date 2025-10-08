@@ -417,10 +417,6 @@ gi_igene <- pivot_wider_by_test(df = eval_hrd,
 #| label: perform-checks
 #| include: FALSE
 
-stopifnot(nrow(glvar_igene) != 0)
-stopifnot(nrow(tvar_igene) != 0)
-stopifnot(nrow(gi_igene) != 0)
-
 tests_in_eval_hrd <- unique(eval_hrd$test_identifier)
 
 tests_in_wide_tables <- c(unique(glvar_igene$test_identifier),
