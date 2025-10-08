@@ -26,6 +26,17 @@ library(janitor)
 
 This is a data audit for the ovarian cancer testing service which will provide data for Dr Rob Morgan.
 
+Dr Morgan would like the data meeting the following criteria:
+
+- Data from genomic instability (GI) testing performed at the Manchester lab using the SeqOne SomaHRD pipeline
+- Ovarian cancer samples only
+- Data from somatic variant testing for genetic variants in *BRCA1*, *BRCA2* and 
+*TP53*
+- Data generated betweenm September 2023 to October 2025
+- One GI result per patient
+- Patients only (no external quality assessment samples or controls)
+- Data from the live service only (no data from validation work)
+
 # Get data from SeqOne csv files
 
 ```{r}

@@ -26,6 +26,17 @@ library(kintsugi)
 
 -   **csv:** data from csv files
 
+## Data tables
+
+Data tables accessed from the DNA Database are named the same in `kintsugi` as their original names, only, whilst DNA Database tables are named in CamelCase, tables in `kintsugi` follow the [tidyverse style guide](https://style.tidyverse.org/syntax.html) by using snake_case.
+
+```{r}
+#| include: TRUE
+
+dnadb_results_access <- connect_to_lazy_tbl("ResultsAccess")
+
+```
+
 ## Identifiers
 
 -   **nhsno:** the patient's 10 digit NHS number.

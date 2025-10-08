@@ -1,4 +1,3 @@
-
 collect_seqone_gi_worksheets <- function(seqone_strings  = c("seqone",
                                                          "seq\\sone",
                                                          "seq_one",
@@ -14,7 +13,7 @@ collect_seqone_gi_worksheets <- function(seqone_strings  = c("seqone",
   #'
   #' @examples gi_ws_info <- collect_seqone_gi_worksheets()
   
-  ws_info <- collect_worksheets_by_description(ws_strings = seqone_strings)
+  ws_info <- collect_worksheets_by_description(descriptions = seqone_strings)
   
   return(ws_info)
   

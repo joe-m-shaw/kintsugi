@@ -5,12 +5,12 @@
 \title{Collect worksheet information by the "description" column in DNA Database}
 \usage{
 collect_worksheets_by_description(
-  ws_strings,
+  descriptions,
   df_cols = c(pcrid, date, description)
 )
 }
 \arguments{
-\item{ws_strings}{A comma-separated character vector of different possible
+\item{descriptions}{A comma-separated character vector of different possible
 descriptions for a worksheet.}
 
 \item{df_cols}{The columns of the PCR_New dataframe to return}
@@ -22,5 +22,5 @@ A dataframe of worksheets including worksheet
 Collect worksheet information by the "description" column in DNA Database
 }
 \examples{
-collect_worksheets_by_description(ws_strings = c("seqone"))
+collect_worksheets_by_description(descriptions = c("seqone"))
 }
