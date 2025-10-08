@@ -123,38 +123,7 @@ Annotate validation data
 ```{r}
 #| label: annotate-validation-data
 
-DOC6192_validation_worksheets <- c("WS133557", "WS134687", "WS134928", 
-                                   "WS135001", "WS135498")
-
-DOC6255_validation_worksheets <- c("WS136827", "WS138201", "WS138439", 
-                                   "WS138627")
-
-DOC6588_validation_worksheets <- c("WS147582", "WS149085", "WS149086")
-
-validation_worksheets <- c(DOC6192_validation_worksheets,
-                           DOC6255_validation_worksheets,
-                           DOC6588_validation_worksheets)
-
-gi_csv_collated_validation_info <- gi_csv_collated_patient_info |> 
-  mutate(service_validation = case_when(
-    worksheet %in% validation_worksheets ~"validation",
-    # 2 validation samples were on WS138061. The other samples on this
-    # worksheet were live clinical samples
-    (worksheet == "WS138061" & labno %in% c("23047082", "23053359")) ~"validation",
-    TRUE ~"service"
-  ),
-  patient_non_patient = case_when(
-    surname %in% c("Seraseq", "GenQA") ~"non-patient",
-    TRUE ~"patient"
-  ),
-  full_name = paste0(firstname, " ", surname))
-
-stopifnot(anyNA(gi_csv_collated_validation_info$service_validation) == FALSE)
-stopifnot(anyNA(gi_csv_collated_validation_info$patient_non_patient) == FALSE)
-
-# Check name fields do not contain numbers
-stopifnot(length(grep(pattern = "[[:digit:]]",
-     gi_csv_collated_validation_info$full_name)) == 0)
+gi_csv_collated_validation_info <- mutate_seqone_gi_df(df = gi_csv_collated_patient_info)
 
 ```
 

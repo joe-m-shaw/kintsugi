@@ -20,9 +20,9 @@ library(kintsugi)
 
 ## Data sources
 
--   **dnadb:** data from the DNA Database, also referred to as DLIMS.
+-   **dnadb:** data from the DNA Database, also referred to as DLIMS (DNA Laboratory Information Management System)
 
--   **igene:** data from the iGene database.
+-   **igene:** data from the iGene database
 
 -   **csv:** data from csv files
 
