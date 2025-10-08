@@ -19,6 +19,7 @@ editor: visual
 library(kintsugi)
 library(tidyverse)
 library(janitor)
+
 ```
 
 # Introduction
@@ -376,14 +377,7 @@ tvar_dnadb_extracted <- tvar_dnadb_results
 ```{r}
 #| label: eval-hrd
 
-eval_hrd_lazy <- connect_to_lazy_tbl(schema = "GenExport",
-                    table = "Eval_HRD")
-
-eval_hrd <- eval_hrd_lazy |> 
-  # For some reason you have to select test_order_date first
-  select(c(test_order_date, test_name, test_identifier, referral_number, 
-           nhsn_umber, test_name, field, data_value, box)) |> 
-  collect()
+eval_hrd <- connect_to_eval_hrd()
 
 test_names <- c("PANEL: M2.5 - SeqOne HRD Status",
                 "PANEL: R207.1 - Inherited ovarian cancer (without breast cancer) v4.0 (ICP)",
@@ -398,53 +392,23 @@ stopifnot(ncol(eval_hrd) == 8)
 ```
 
 ```{r}
-#| label: widen-by-test
-#| include: FALSE
-
-widen_by_test <- function(df = eval_hrd, 
-                          test_vector,
-                          prefix_string) {
-  
-  output <- eval_hrd |> 
-    filter(test_name %in% test_vector) |> 
-    pivot_wider(id_cols = c(referral_number, 
-                            nhsn_umber,
-                            test_order_date, 
-                            test_identifier),
-                names_from = box,
-                values_from = data_value,
-                names_prefix = prefix_string) |> 
-    clean_names() |> 
-    rename(nhsno = nhsn_umber)
-  
-  if(nrow(output) == 0){
-    stop("Output dataframe is empty")
-  }
-  
-  return(output)
-  
-}
-
-```
-
-```{r}
 #| label: extract-tvar-and-glvar-results
 
-glvar_igene <- widen_by_test(df = eval_hrd,
+glvar_igene <- pivot_wider_by_test(df = eval_hrd,
                               test_vector = c("PANEL: R207.1 - Inherited ovarian cancer (without breast cancer) v4.0 (ICP)"), 
-                              prefix_string = "glvar")
+                              names_prefix = "glvar")
 
 stopifnot(ncol(glvar_igene) == 23)
 
-tvar_igene <- widen_by_test(df = eval_hrd,
+tvar_igene <- pivot_wider_by_test(df = eval_hrd,
                              test_vector = c("PANEL: M2_tBRCA_PS",
                                              "PANEL: M2_tBRCA_PS v2.a",
                                              "PANEL: M2_tBRCA_PS v2.b"), 
-                             prefix_string = "tvar")
+                             names_prefix = "tvar")
 
-gi_igene <- widen_by_test(df = eval_hrd,
+gi_igene <- pivot_wider_by_test(df = eval_hrd,
                           test_vector = c("PANEL: M2.5 - SeqOne HRD Status"), 
-                          prefix_string = "gi")
+                          names_prefix = "gi")
 
 
 ```

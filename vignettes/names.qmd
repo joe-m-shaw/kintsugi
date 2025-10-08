@@ -57,20 +57,26 @@ library(kintsugi)
 
 ## Verbs
 
-I have tried to use consistent verbs to label dataframes.
-These verbs are based on their usage in the `dplyr` package.
-
--   **mutate:** add on useful information to a dataframe.
+I have tried to use consistent verbs for dataframes and functions.
+These verbs are based on their usage in tidyverse packages such as `dplyr` and `tidyr`.
 
 -   **bind:** bind together two (or more) large datasets, using the `rbind` or `purrr:list_rbind()` function.
 
 -   **clean:** filter a table, removing duplicates or tidying up free-text columns
 
--   **collect:** pull information out of a database.
+-   **collect:** pull information out of a database (`dplyr::collect`).
 
--   **join:** bring two tables together using a common key variable
+-   **connect:** establish a connection with a database table but without collecting data (a "lazy table") using `dplyr::tbl`
 
--   **read:** reading information from a single file
+-   **join:** bring two tables together using a common key variable (`dplyr::left_join`)
+
+-   **list:** list filepaths using `base::list.files`
+
+-   **pivot:** restrcucture a table using `tidyr::pivot_longer` or `tidyr::pivot_wider`
+
+-   **mutate:** add on useful information to a dataframe (`dplyr::mutate`).
+
+-   **read:** reading information from a single file (`dplyr::read_csv`)
 
 ## Projects
 
