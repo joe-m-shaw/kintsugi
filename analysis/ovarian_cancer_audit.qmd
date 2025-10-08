@@ -892,9 +892,7 @@ Join GI and glvar by NHS number
 
 gi_csv_cleaned_orpp_for_join <- gi_csv_cleaned_orpp |> 
   rename(gi_labno = labno,
-         gi_pathno = pathno) |> 
-  select(nhsno, rno, gi_labno, gi_pathno, firstname, surname, lga, lpc, score,
-         status, gi_confidence)
+         gi_pathno = pathno) 
 
 glvar_dnadb_igene_bound_orpp_for_join <- glvar_dnadb_igene_bound_orpp |> 
   rename(glvar_labno = labno,
@@ -923,7 +921,7 @@ gi_tvar_joined_by_labno <- gi_csv_cleaned_orpp_for_join |>
              relationship = "one-to-one") 
 
 gi_tvar_joined_by_nhsno <- gi_csv_cleaned_orpp_for_join |> 
-  inner_join(tvar_dnadb_igene_bound_orpp_for_join,
+  left_join(tvar_dnadb_igene_bound_orpp_for_join,
              by = "nhsno",
              relationship = "one-to-one") 
 
@@ -1319,3 +1317,30 @@ gi_csv_cleaned_orpp |>
        fill = "GI status")
 
 ```
+
+# Export results in correct format
+
+```{r}
+
+final_export <- gi_tvar_joined_by_nhsno |> 
+  select(
+    nhsno,
+    tvar_gene,
+    tvar_seqv1_description,
+    tvar_seqv1_percent,
+    # tbrca reference sequence
+    tvar_seqv1_classification,
+    coverage,
+    pct_mapped_reads,
+    lga,
+    lpc,
+    score,
+    status,
+    # Add TP53 data
+    # Add additional HRR gene mutations
+    ccne1_cn,
+    rad51b_cn
+  )
+
+```
+
