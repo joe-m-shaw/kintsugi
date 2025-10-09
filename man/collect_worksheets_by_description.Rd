@@ -6,7 +6,7 @@
 \usage{
 collect_worksheets_by_description(
   descriptions,
-  df_cols = c(pcrid, date, description)
+  df_cols = c("pcrid", "date", "description")
 )
 }
 \arguments{

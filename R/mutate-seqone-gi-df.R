@@ -1,8 +1,8 @@
 mutate_seqone_gi_df <- function(df,
                                     non_patient_strings = c("Seraseq", "GenQA"),
-                                    name_col = surname,
-                                    worksheet_col = worksheet,
-                                    labno_col = labno,
+                                    name_col = "surname",
+                                    worksheet_col = "worksheet",
+                                    labno_col = "labno",
                                     validation_ws = c(
                                       # DOC6192
                                       "WS133557", "WS134687", "WS134928", 

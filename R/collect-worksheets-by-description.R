@@ -1,5 +1,6 @@
 collect_worksheets_by_description <- function(descriptions,
-                                              df_cols = c(pcrid, date, description)){
+                                              df_cols = c("pcrid", "date", 
+                                                          "description")){
   
   #' Collect worksheet information by the "description" column in DNA Database
   #'

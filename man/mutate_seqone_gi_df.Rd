@@ -7,9 +7,9 @@
 mutate_seqone_gi_df(
   df,
   non_patient_strings = c("Seraseq", "GenQA"),
-  name_col = surname,
-  worksheet_col = worksheet,
-  labno_col = labno,
+  name_col = "surname",
+  worksheet_col = "worksheet",
+  labno_col = "labno",
   validation_ws = c("WS133557", "WS134687", "WS134928", "WS135001", "WS135498",
     "WS136827", "WS138201", "WS138439", "WS138627", "WS147582", "WS149085", "WS149086")
 )

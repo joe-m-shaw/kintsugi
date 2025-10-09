@@ -1,11 +1,11 @@
 collect_dnadb_ids_by_labno <- function(labno_vector,
                                    cols = c("labno", 
-                                               "i_gene_r_no", 
-                                               "i_gene_s_no", 
-                                               "firstname", 
-                                               "surname", 
-                                               "nhsno", 
-                                               "pathno")) {
+                                             "i_gene_r_no", 
+                                             "i_gene_s_no", 
+                                             "firstname", 
+                                             "surname", 
+                                             "nhsno", 
+                                             "pathno")) {
   
   #' Collect identifiers for samples from DNA Database by DNA lab number
   #'

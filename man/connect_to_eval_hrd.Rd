@@ -8,8 +8,8 @@ connect_to_eval_hrd(
   catalog = "MolecularDB",
   schema = "GenExport",
   table = "Eval_HRD",
-  col_vector = c(test_order_date, test_name, test_identifier, referral_number,
-    nhsn_umber, test_name, field, data_value, box)
+  col_vector = c("test_order_date", "test_name", "test_identifier", "referral_number",
+    "nhsn_umber", "test_name", "field", "data_value", "box")
 )
 }
 \arguments{

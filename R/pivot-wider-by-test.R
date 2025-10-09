@@ -1,12 +1,12 @@
 pivot_wider_by_test <- function(df, 
                           test_vector,
                           names_prefix,
-                          id_cols = c(referral_number, 
-                                      nhsn_umber,
-                                      test_order_date, 
-                                      test_identifier),
-                          names_from = box,
-                          values_from = data_value){
+                          id_cols = c("referral_number", 
+                                      "nhsn_umber",
+                                      "test_order_date", 
+                                      "test_identifier"),
+                          names_from = "box",
+                          values_from = "data_value"){
   
   #' Pivot a dataframe by the test column
   #'
