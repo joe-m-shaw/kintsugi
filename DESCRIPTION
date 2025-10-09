@@ -22,5 +22,6 @@ VignetteBuilder: quarto
 Suggests: 
     rmarkdown,
     testthat (>= 3.0.0),
-    quarto
+    quarto,
+    tibble
 Config/testthat/edition: 3
