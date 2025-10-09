@@ -518,6 +518,7 @@ glvar_dnadb_classifications <- glvar_dnadb_extracted |>
       genotype == "BRCA2 c.4276dup p.(Thr1426AsnfsTer12) 48%; BRCA1 c.5074+13C>A 43%; CNV Analysis Failed" ~"BRCA2 c.4276dup p.(Thr1426AsnfsTer12)",
       TRUE ~glvar_seqv1_description
     ),
+    glvar_seqv1_description = trimws(glvar_seqv1_description, which = "left"),
     # glvar_icnv1_description is used in the iGene results to describe CNVs
     glvar_icnv1_description = str_extract(string = glvar_cnv_result,
                                   pattern = ".*Ex.*")
@@ -525,7 +526,8 @@ glvar_dnadb_classifications <- glvar_dnadb_extracted |>
   left_join(glvar_classifications,
              by = "glvar_seqv1_description") |> 
   mutate(glvar_icnv1_classification = case_when(
-    glvar_icnv1_description == " BRCA1 Ex02 deletion" ~"Pathogenic",
+      glvar_icnv1_description == " BRCA1 Ex02 deletion" ~"Pathogenic",
+      glvar_icnv1_description == " RAD51D Exon 1 to Exon 8 deletion" ~"Likely pathogenic",
     TRUE ~NA
   ))
 
@@ -536,7 +538,7 @@ samples_with_gl_cn_variants <- glvar_dnadb_classifications |>
   filter(!is.na(glvar_icnv1_description))
 
 # Check all variants have a classification
-#stopifnot(anyNA(samples_with_gl_sn_variants$glvar_seqv1_classification) == FALSE)
+stopifnot(anyNA(samples_with_gl_sn_variants$glvar_seqv1_classification) == FALSE)
 
 stopifnot(anyNA(samples_with_gl_cn_variants$glvar_icnv1_classification) == FALSE)
 
@@ -801,7 +803,13 @@ glvar_dnadb_igene_bound_genes <- glvar_dnadb_igene_bound |>
        glvar_headline_classification = case_when(
          !is.na(glvar_seqv1_classification) ~glvar_seqv1_classification,
          !is.na(glvar_icnv1_classification) ~glvar_icnv1_classification,
-         TRUE ~NA))
+         TRUE ~NA), 
+       glvar_headline_classification = factor(glvar_headline_classification,
+                                              levels = c("Pathogenic",
+                                                         "Likely pathogenic",
+                                                         "Uncertain significance",
+                                                         "Not reported",
+                                                         NA)))
 
 samples_with_gl_variants <- glvar_dnadb_igene_bound_genes |> 
   filter(glvar_headline_result == "Reportable variant(s) detected")
