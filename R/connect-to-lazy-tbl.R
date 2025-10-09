@@ -1,4 +1,3 @@
-
 connect_to_lazy_tbl <- function(
     table,
     catalog = "MolecularDB",
