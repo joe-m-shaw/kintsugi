@@ -32,12 +32,16 @@ Dr Morgan would like the data meeting the following criteria:
 - Ovarian cancer samples only
 - Data from somatic variant testing for genetic variants in *BRCA1*, *BRCA2* and 
 *TP53*
-- Data generated betweenm September 2023 to October 2025
+- Data generated between September 2023 to October 2025
 - One GI result per patient
 - Patients only (no external quality assessment samples or controls)
 - Data from the live service only (no data from validation work)
 
-# Get data from SeqOne csv files
+# Methods
+
+# Collate data from SeqOne csv files
+
+Define the folder path and file structure for this audit.
 
 ```{r}
 #| label: filepaths
@@ -54,7 +58,8 @@ seqone_gi_csv_folder <- paste0(initial_folder, "seqone_gi_csvs/")
 
 ```
 
-Collate SeqOne csv data
+Identify worksheet numbers and file locations for all SeqOne GI testing at the North West GLH.
+Results are exported from the SeqOne website as .csv files and saved in folders named after the worksheet identifier.
 
 ```{r}
 #| label: find-seqone-files
@@ -70,6 +75,8 @@ gi_ws_filepaths <- gi_ws_list |>
 
 ```
 
+Copy files to audit folder.
+
 ```{r}
 #| label: copy-files
 #| include: FALSE
@@ -80,8 +87,16 @@ file.copy(from = gi_ws_filepaths,
 
 ```
 
+Collate GI results by reading the first line of each .csv file.
+Two files are excluded from this process (shown below) as they were from a failed pipeline run and have NA values for several variables.
+These samples were successfully re-analysed.
+
 ```{r}
 #| label: collate-seqone-data
+#| echo: FALSE
+
+seqone_files_with_nas <- c("WS144728_24045060 hrd-results.csv",
+                           "WS144728_24044787 hrd-results.csv")
 
 seqone_csv_filepaths <- list.files(path = seqone_gi_csv_folder,
                                    full.names = TRUE,
@@ -104,9 +119,11 @@ gi_ws_collated <- seqone_csv_filepaths_na_removed |>
                                  pattern = "(WS[0-9]{6})_(\\d{8})",
                                  group = 1))
 
+seqone_files_with_nas
+
 ```
 
-Get patient information from DNA Database.
+Get information (iGene R number, iGene S number, first name, surname, NHS number and pathology block identifier) from DNA Database for each DNA laboratory number.
 
 ```{r}
 #| label: get-gi-patient-info
@@ -129,7 +146,7 @@ stopifnot(anyNA(gi_csv_collated_patient_info$firstname) == FALSE)
 
 ```
 
-Annotate validation data
+Annotate the collated data to identify samples which are not from patients (GenQA and SeraCare control samples) and samples which were run for validation purposes.
 
 ```{r}
 #| label: annotate-validation-data
@@ -138,7 +155,9 @@ gi_csv_collated_validation_info <- mutate_seqone_gi_df(df = gi_csv_collated_pati
 
 ```
 
-Filter to one result per patient
+Filter results to only include patient samples tested on the live service, and filter results to one result per patient.
+Some patient have multiple samples. 
+To select samples with conclusive results (positive or negative GI statuses), arrange by NHS number and status and then remove NHS number duplicates.
 
 ```{r}
 #| label: filter-one-result-per-patient
@@ -148,10 +167,6 @@ gi_csv_cleaned_orpp <- gi_csv_collated_validation_info |>
   filter(!is.na(nhsno) &
            service_validation == "service" &
            patient_non_patient == "patient") |> 
-  # Some patient have multiple samples. To select samples with conclusive 
-  # results (positive or negative statuses), arrange by NHS number and 
-  # status and then
-  # remove NHS number duplicates
   arrange(nhsno, status) |> 
   filter(!duplicated(nhsno))
 
@@ -160,8 +175,12 @@ stopifnot(unique(gi_csv_cleaned_orpp$service_validation) == "service")
 stopifnot(anyDuplicated(gi_csv_cleaned_orpp$labno) == 0)
 stopifnot(anyDuplicated(gi_csv_cleaned_orpp$nhsno) == 0)
 
-# Check the lab number with a conclusive result has been selected for 
-# patients with multiple samples including non-conclusive results
+```
+
+Check the DNA lab number with a conclusive result has been selected for patients with multiple samples including non-conclusive results
+
+```{r}
+
 stopifnot(nrow(gi_csv_cleaned_orpp[gi_csv_cleaned_orpp$labno == "24044667" &
                            gi_csv_cleaned_orpp$status == "Negative",]) == 1)
 
@@ -184,7 +203,7 @@ same_name_df <- gi_csv_cleaned_orpp |>
 
 ```
 
-Filter to one result per sample.
+Filter to one result per sample (i.e. one result per DNA lab number).
 
 ```{r}
 #| label: filter-one-result-per-sample
@@ -202,7 +221,7 @@ stopifnot(nrow(gi_csv_cleaned_orps[gi_csv_cleaned_orps$labno == "24045060" &
 
 ```
 
-Export data
+Export GI data to audit folder.
 
 ```{r}
 #| label: export-data
@@ -221,7 +240,10 @@ write_csv(gi_csv_cleaned_orps,
 
 ```
 
-# Get data from DNA Database
+# Collate data from DNA Database
+
+Define the patients tested with the SeqOne GI method using their NHS numbers.
+Then extract all the DNA lab numbers recorded under those NHS numbers in DNA database.
 
 ```{r}
 #| label: find-all-patient-lab-numbers
@@ -242,9 +264,8 @@ labno_query <- unique(labno_df$labno)
 
 ```
 
-There are SeqOne results for `r length(gi_nhsnos)` unique patients, based on their NHS numbers.
-The script then queries the DNA Database to check for all other DNA numbers which are linked to these NHS numbers.
-`r nrow(labno_df)` different DNA numbers have been found.
+There are SeqOne GI results for `r length(gi_nhsnos)` unique patients, based on their NHS numbers.
+`r nrow(labno_df)` different DNA numbers have been found which are linked to these NHS numbers.
 
 ```{r}
 #| label: result-tbl
@@ -263,6 +284,9 @@ stopifnot(nrow(dnadb_results) != 0)
 ```
 
 ## Germline BRCA testing
+
+Find DNA Database results that are from Inherited Cancer Panel (ICP) testing.
+This is done using the "test" column of the "ResultsAccess" table, which is free type - there are many different ways that ICP testing has been written.
 
 ```{r}
 #| label: identify-glvar-results
@@ -289,9 +313,7 @@ glvar_dnadb_results <- dnadb_results |>
 
 ```
 
-The script looks for germline *BRCA* testing results based on the "test" column in the DNA Database results table.
-The "test" column is free type, so many different versions of the test have been written.
-The script has found `r length(icp_test_strings)` different ways that germline *BRCA* testing has been described, which are listed below.
+`r length(icp_test_strings)` different ways have been found that the ICP panel has been described, which are listed below.
 In total, `r nrow(glvar_dnadb_results)` germline results have been found.
 These results range from
 `r format.Date(x = min(glvar_dnadb_results$genodate), format = "%d %B %Y")` to
@@ -299,6 +321,7 @@ These results range from
 
 ```{r}
 #| label: tbl-icp-test-strings
+#| tbl-cap: "Unique descriptions of the ICP panel"
 #| echo: FALSE
 
 knitr::kable(glvar_dnadb_results |> 
