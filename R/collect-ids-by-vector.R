@@ -21,10 +21,14 @@ collect_ids_by_vector <- function(query_col,
 
   samples_tbl <- connect_to_lazy_tbl("Samples")
   
+  check_column(query_col, output_cols, samples_tbl)
+  
   output <- samples_tbl |> 
     dplyr::select({{ output_cols }}) |> 
     dplyr::filter(.data[[query_col]] %in% query_vector) |> 
     dplyr::collect() 
+  
+  check_output(output)
   
   return(output)
   

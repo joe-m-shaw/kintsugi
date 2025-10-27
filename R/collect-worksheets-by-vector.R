@@ -17,12 +17,7 @@ collect_worksheets_by_vector <- function(query_col,
   
   dnadb_pcr_new <- connect_to_lazy_tbl("PCR_New")
   
-  if(!{{ query_col }} %in% {{ output_cols }}){
-    stop(paste0("Query column ",
-                query_col,
-                " is not in output columns: ",
-                paste(output_cols, collapse = ", ")))
-  }
+  check_column(query_col, output_cols, dnadb_pcr_new)
   
   all_worksheets <- dnadb_pcr_new |> 
     dplyr::select({{ output_cols }}) |> 
@@ -32,9 +27,7 @@ collect_worksheets_by_vector <- function(query_col,
   output <- all_worksheets |> 
     dplyr::filter(.data[[query_col]] %in% query_vector)
   
-  if(nrow(output) == 0){
-    warning("Output has 0 rows")
-  }
-    
+  check_output(output)
+  
   return(output)
 }

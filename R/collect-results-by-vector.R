@@ -21,28 +21,18 @@ collect_results_by_vector <- function(query_col,
 
   results_access_tbl <- connect_to_lazy_tbl("ResultsAccess")
   
-  if(!{{ query_col }} %in% {{ output_cols }}){
-    stop(paste0("Query column ",
-                query_col,
-                " is not in output columns: ",
-                paste(output_cols, collapse = ", ")))
-  }
-  
-  if(!{{ query_col }} %in% colnames(results_access_tbl)){
-    stop(paste0("Query column ",
-                query_col,
-                " is not in the ResultsAccess table"))
-  }
+  check_column(query_col, output_cols, results_access_tbl)
   
   output <- results_access_tbl |> 
     dplyr::select({{ output_cols }}) |> 
     dplyr::filter(.data[[query_col]] %in% query_vector) |> 
     dplyr::collect() 
 
+  check_output(output)
+  
   return(output)
     
 }
-
 
 
 
