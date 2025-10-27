@@ -1,5 +1,5 @@
 ---
-title: "Ovarian Cancer Service Audit"
+title: "Ovarian Cancer Service Data for Publication"
 author: "Joe Shaw (CS20980)"
 toc: true
 date: today
@@ -24,7 +24,7 @@ library(janitor)
 
 # Introduction
 
-This is a data audit for the ovarian cancer testing service which will provide data for Dr Rob Morgan.
+This is a data review for the ovarian cancer testing service which will provide data for Dr Rob Morgan.
 
 Dr Morgan would like the data meeting the following criteria:
 
@@ -40,7 +40,7 @@ Dr Morgan would like the data meeting the following criteria:
 
 # Collate data from SeqOne csv files
 
-Define the folder path and file structure for this audit.
+Define the folder path and file structure for this review.
 
 ```{r}
 #| label: filepaths
@@ -74,7 +74,7 @@ gi_ws_filepaths <- gi_ws_list |>
 
 ```
 
-Copy files to audit folder.
+Copy files to review folder.
 
 ```{r}
 #| label: copy-files
@@ -86,9 +86,7 @@ file.copy(from = gi_ws_filepaths,
 
 ```
 
-Collate GI results by reading the first line of each .csv file.
-Two files are excluded from this process (shown below) as they were from a failed pipeline run and have NA values for several variables.
-These samples were successfully re-analysed.
+Collate GI results by reading the first line of each .csv file. Two files are excluded from this process (shown below) as they were from a failed pipeline run and have NA values for several variables. These samples were successfully re-analysed.
 
 ```{r}
 #| label: collate-seqone-data
@@ -154,9 +152,7 @@ gi_csv_collated_validation_info <- mutate_seqone_gi_df(df = gi_csv_collated_pati
 
 ```
 
-Filter results to only include patient samples tested on the live service, and filter results to one result per patient.
-Some patient have multiple samples.
-To select samples with conclusive results (positive or negative GI statuses), arrange by NHS number and status and then remove NHS number duplicates.
+Filter results to only include patient samples tested on the live service, and filter results to one result per patient. Some patient have multiple samples. To select samples with conclusive results (positive or negative GI statuses), arrange by NHS number and status and then remove NHS number duplicates.
 
 ```{r}
 #| label: filter-one-result-per-patient
@@ -215,7 +211,7 @@ stopifnot(nrow(gi_csv_cleaned_orps[gi_csv_cleaned_orps$labno == "24045060" &
 
 ```
 
-Export GI data to audit folder.
+Export GI data to folder.
 
 ```{r}
 #| label: export-data
@@ -236,8 +232,7 @@ write_csv(gi_csv_cleaned_orps,
 
 # Collate data from DNA Database
 
-Define the patients tested with the SeqOne GI method using their NHS numbers.
-Then extract all the DNA lab numbers recorded under those NHS numbers in DNA database.
+Define the patients tested with the SeqOne GI method using their NHS numbers. Then extract all the DNA lab numbers recorded under those NHS numbers in DNA database.
 
 ```{r}
 #| label: find-all-patient-lab-numbers
@@ -255,8 +250,7 @@ labno_query <- unique(labno_df$labno)
 
 ```
 
-There are SeqOne GI results for `r length(gi_nhsnos)` unique patients, based on their NHS numbers.
-`r nrow(labno_df)` different DNA numbers have been found which are linked to these NHS numbers.
+There are SeqOne GI results for `r length(gi_nhsnos)` unique patients, based on their NHS numbers. `r nrow(labno_df)` different DNA numbers have been found which are linked to these NHS numbers.
 
 ```{r}
 #| label: result-tbl
@@ -271,8 +265,7 @@ stopifnot(nrow(dnadb_results) != 0)
 
 ## Germline BRCA testing
 
-Find DNA Database results that are from Inherited Cancer Panel (ICP) testing.
-This is done using the "test" column of the "ResultsAccess" table, which is free type - there are many different ways that ICP testing has been written.
+Find DNA Database results that are from Inherited Cancer Panel (ICP) testing. This is done using the "test" column of the "ResultsAccess" table, which is free type - there are many different ways that ICP testing has been written.
 
 ```{r}
 #| label: identify-glvar-results
@@ -285,9 +278,7 @@ glvar_dnadb_results <- collect_results_by_vector(query_col = "test",
 
 ```
 
-`r length(unique(descriptions_icp()))` different ways have been found that the ICP panel has been described, which are listed below.
-In total, `r nrow(glvar_dnadb_results)` germline results have been found.
-These results range from `r format.Date(x = min(glvar_dnadb_results$genodate), format = "%d %B %Y")` to `r format.Date(x = max(glvar_dnadb_results$genodate), format = "%d %B %Y")`.
+`r length(unique(descriptions_icp()))` different ways have been found that the ICP panel has been described, which are listed below. In total, `r nrow(glvar_dnadb_results)` germline results have been found. These results range from `r format.Date(x = min(glvar_dnadb_results$genodate), format = "%d %B %Y")` to `r format.Date(x = max(glvar_dnadb_results$genodate), format = "%d %B %Y")`.
 
 ```{r}
 #| label: tbl-icp-test-strings
@@ -314,8 +305,7 @@ tvar_dnadb_results <- collect_results_by_vector(query_col = "test",
 
 ```
 
-The script now does the same thing for tumour *BRCA* results.
-There are `r length(unique(descriptions_pansolid()))` different ways that tumour *BRCA* testing has been described, and `r nrow(tvar_dnadb_results)` results have been found, ranging from `r format.Date(x = min(tvar_dnadb_results$genodate), format = "%d %B %Y")` to `r format.Date(x = max(tvar_dnadb_results$genodate), format = "%d %B %Y")`.
+The script now does the same thing for tumour *BRCA* results. There are `r length(unique(descriptions_pansolid()))` different ways that tumour *BRCA* testing has been described, and `r nrow(tvar_dnadb_results)` results have been found, ranging from `r format.Date(x = min(tvar_dnadb_results$genodate), format = "%d %B %Y")` to `r format.Date(x = max(tvar_dnadb_results$genodate), format = "%d %B %Y")`.
 
 ```{r}
 #| label: export-dnadb-glvar-tvar-data
