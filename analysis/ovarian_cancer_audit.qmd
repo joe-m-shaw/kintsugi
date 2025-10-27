@@ -68,9 +68,9 @@ gi_ws_info <- collect_worksheets_by_vector(query_col = "description",
 gi_ws_list <- list(gi_ws_info$worksheet)
 
 gi_ws_filepaths <- gi_ws_list |> 
-  purrr::map(\(gi_ws_list) list_worksheet_filepaths(worksheet = gi_ws_list,
+  map(\(gi_ws_list) list_worksheet_filepaths(worksheet = gi_ws_list,
                                       pattern = "hrd-results.*csv")) |> 
-  purrr::flatten()
+  flatten()
 
 ```
 
@@ -102,6 +102,7 @@ seqone_csv_filepaths <- list.files(path = seqone_gi_csv_folder,
                                    recursive = FALSE,
                                    pattern = "hrd-results.*csv"
                                    )
+
 seqone_files_with_nas <- c("WS144728_24045060 hrd-results.csv",
                            "WS144728_24044787 hrd-results.csv")
 
@@ -110,15 +111,13 @@ seqone_csv_filepaths_na_removed <- seqone_csv_filepaths[-grep(
   seqone_csv_filepaths)]
 
 gi_ws_collated <- seqone_csv_filepaths_na_removed |> 
-  purrr::map(\(seqone_csv_filepaths_na_removed) read_seqone_gi_csv(seqone_csv_filepaths_na_removed)) |> 
-  purrr::list_rbind() |> 
+  map(\(seqone_csv_filepaths_na_removed) read_seqone_gi_csv(seqone_csv_filepaths_na_removed)) |> 
+  list_rbind() |> 
   mutate(labno = str_extract(string = sample,
                              pattern = "\\d{8}"),
          worksheet = str_extract(string = sample,
                                  pattern = "(WS[0-9]{6})_(\\d{8})",
                                  group = 1))
-
-seqone_files_with_nas
 
 ```
 
@@ -161,7 +160,6 @@ To select samples with conclusive results (positive or negative GI statuses), ar
 
 ```{r}
 #| label: filter-one-result-per-patient
-#| include: FALSE
 
 gi_csv_cleaned_orpp <- gi_csv_collated_validation_info |> 
   filter(!is.na(nhsno) &
@@ -180,6 +178,7 @@ stopifnot(anyDuplicated(gi_csv_cleaned_orpp$nhsno) == 0)
 Check the DNA lab number with a conclusive result has been selected for patients with multiple samples including non-conclusive results
 
 ```{r}
+#| label: check-samples-with-multiple-results
 
 stopifnot(nrow(gi_csv_cleaned_orpp[gi_csv_cleaned_orpp$labno == "24044667" &
                            gi_csv_cleaned_orpp$status == "Negative",]) == 1)
@@ -195,11 +194,6 @@ stopifnot(nrow(gi_csv_cleaned_orpp[gi_csv_cleaned_orpp$labno == "24064756" &
 
 stopifnot(nrow(gi_csv_cleaned_orpp[gi_csv_cleaned_orpp$labno == "25030664" &
                           gi_csv_cleaned_orpp$status == "Positive",]) == 1)
-
-same_name_df <- gi_csv_cleaned_orpp |> 
-  filter(duplicated(full_name, fromLast = TRUE) |
-           duplicated(full_name, fromLast = FALSE)) |> 
-  select(firstname, surname, nhsno)
 
 ```
 
@@ -250,12 +244,9 @@ Then extract all the DNA lab numbers recorded under those NHS numbers in DNA dat
 
 gi_nhsnos <- gi_csv_cleaned_orpp$nhsno
 
-samples_tbl <- connect_to_lazy_tbl("Samples")
-
-labno_df <- samples_tbl |> 
-  filter(nhsno %in% gi_nhsnos) |> 
-  select(labno, nhsno) |> 
-  collect()
+labno_df <- collect_ids_by_vector(query_col = "nhsno",
+                                  query_vector = gi_nhsnos,
+                                  output_cols = c("labno", "nhsno"))
 
 stopifnot(length(setdiff(unique(labno_df$nhsno), gi_nhsnos)) == 0)
 stopifnot(anyNA.data.frame(labno_df) == FALSE)
@@ -270,15 +261,10 @@ There are SeqOne GI results for `r length(gi_nhsnos)` unique patients, based on 
 ```{r}
 #| label: result-tbl
 
-resultsaccess_tbl <- connect_to_lazy_tbl("ResultsAccess") |> 
+dnadb_results <- collect_results_by_vector(query_col = "labno",
+                                           query_vector = labno_query) |> 
   rename(pcrid = resultsid)
-
-dnadb_results <- resultsaccess_tbl |> 
-  filter(labno %in% labno_query) |> 
-  select(labno, genodate, pcrid, test, genotype, genotype2,
-         genocomm) |> 
-  collect()
-
+  
 stopifnot(nrow(dnadb_results) != 0)
 
 ```
@@ -291,29 +277,15 @@ This is done using the "test" column of the "ResultsAccess" table, which is free
 ```{r}
 #| label: identify-glvar-results
 
-icp_grep_strings <- unique(grep(pattern = "hs2(\\s|)icp", 
-            x = dnadb_results$test, 
-            ignore.case = TRUE, 
-            value = TRUE))
-
-icp_test_strings <- c(icp_grep_strings,
-                      "NGS SSXT ICP",
-                      "ICP PANEL",
-                      "SSXT ICP NGS",
-                      "ICP SSXT NGS",
-                      "Panel re-analysis of 24043064 from WS144546",
-                      "NGS SSXT ICPv4",
-                      "SSXTHS2 ICPv4",
-                      "ICPv4 NGS SSXT HS2")
-
-glvar_dnadb_results <- dnadb_results |> 
-  filter(test %in% icp_test_strings) |> 
+glvar_dnadb_results <- collect_results_by_vector(query_col = "test",
+                                                 query_vector = descriptions_icp()) |> 
+  filter(labno %in% labno_query) |> 
   left_join(labno_df, by = "labno") |> 
   relocate(nhsno)
 
 ```
 
-`r length(icp_test_strings)` different ways have been found that the ICP panel has been described, which are listed below.
+`r length(unique(descriptions_icp()))` different ways have been found that the ICP panel has been described, which are listed below.
 In total, `r nrow(glvar_dnadb_results)` germline results have been found.
 These results range from `r format.Date(x = min(glvar_dnadb_results$genodate), format = "%d %B %Y")` to `r format.Date(x = max(glvar_dnadb_results$genodate), format = "%d %B %Y")`.
 
@@ -334,23 +306,16 @@ knitr::kable(glvar_dnadb_results |>
 ```{r}
 #| label: identify-tbrca-results
 
-pansolid_grep_strings <- unique(grep(pattern = "seq\\span", 
-                                     x = dnadb_results$test, 
-                                     ignore.case = TRUE, 
-                                     value = TRUE))
-
-pansolid_test_strings <- c(pansolid_grep_strings,
-                           "NGS Pansolid", "NGS PanSolid QIAseq")
-
-tvar_dnadb_results <- dnadb_results |> 
-  filter(test %in% pansolid_test_strings) |> 
+tvar_dnadb_results <- collect_results_by_vector(query_col = "test",
+                                                 query_vector = descriptions_pansolid()) |> 
+  filter(labno %in% labno_query) |>
   left_join(labno_df, by = "labno") |> 
   relocate(nhsno)
 
 ```
 
 The script now does the same thing for tumour *BRCA* results.
-There are `r length(pansolid_test_strings)` different ways that tumour *BRCA* testing has been described, and `r nrow(tvar_dnadb_results)` results have been found, ranging from `r format.Date(x = min(tvar_dnadb_results$genodate), format = "%d %B %Y")` to `r format.Date(x = max(tvar_dnadb_results$genodate), format = "%d %B %Y")`.
+There are `r length(unique(descriptions_pansolid()))` different ways that tumour *BRCA* testing has been described, and `r nrow(tvar_dnadb_results)` results have been found, ranging from `r format.Date(x = min(tvar_dnadb_results$genodate), format = "%d %B %Y")` to `r format.Date(x = max(tvar_dnadb_results$genodate), format = "%d %B %Y")`.
 
 ```{r}
 #| label: export-dnadb-glvar-tvar-data
@@ -545,12 +510,12 @@ glvar_dnadb_cleaned <- glvar_dnadb_classifications |>
     glvar_seqv1_classification %in% c("Pathogenic", "Likely pathogenic",
                                 "Uncertain significance") ~"Reportable variant(s) detected",
     glvar_seqv1_classification == "Not reported" ~"No reportable variant(s) detected",
-    glvar_icnv1_classification == "Pathogenic" ~"Reportable variant(s) detected",
+    glvar_icnv1_classification %in% c("Pathogenic", "Likely pathogenic") ~"Reportable variant(s) detected",
     # Specify headline for 18028742
     (glvar_snv_result == "No pathogenic variant identified" &
       glvar_cnv_result == " No pathogenic variant identified") ~"No reportable variant(s) detected"))
 
-# stopifnot(anyNA(glvar_dnadb_cleaned$glvar_headline_result) == FALSE)
+stopifnot(anyNA(glvar_dnadb_cleaned$glvar_headline_result) == FALSE)
 
 ```
 
@@ -633,7 +598,7 @@ There are `r length(intersect(igene_nhsno, dnadb_nhsno))` patients with results 
 ```{r}
 #| label: prepare-igene-data-for-bind
 
-patient_id_df <- samples_tbl |> 
+patient_id_df <- connect_to_lazy_tbl(table = "Samples") |> 
   select(i_gene_r_no, labno, pathno) |> 
   collect() |> 
   rename(rno = i_gene_r_no) |> 
