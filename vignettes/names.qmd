@@ -28,7 +28,7 @@ library(kintsugi)
 
 ## Data tables
 
-Data tables accessed from the DNA Database are named the same in `kintsugi` as their original names, only, whilst DNA Database tables are named in CamelCase, tables in `kintsugi` follow the [tidyverse style guide](https://style.tidyverse.org/syntax.html) by using snake_case.
+Data tables accessed from the DNA Database are named the same in `kintsugi` as their original names. However, whilst DNA Database tables are named in CamelCase, tables in `kintsugi` follow the [tidyverse style guide](https://style.tidyverse.org/syntax.html) by using snake_case.
 
 ```{r}
 #| include: TRUE
@@ -63,7 +63,7 @@ dnadb_results_access <- connect_to_lazy_tbl("ResultsAccess")
 -   **pathno:** the identifier of the FFPE pathology block from which DNA was extracted.
     Different pathology labs have different formats for pathno.
 
--   **ws:** the worksheet the sample was tested on at the Manchester Genomic Laboratory Hub.
+-   **worksheet:** the worksheet the sample was tested on at the Manchester Genomic Laboratory Hub.
     The format is WS followed by 6 digits.
 
 ## Verbs
