@@ -30,15 +30,24 @@ Dr Morgan would like the data meeting the following criteria:
 
 -   Data from genomic instability (GI) testing performed at the Manchester lab using the SeqOne SomaHRD pipeline
 -   Ovarian cancer samples only
--   Data from somatic variant testing for genetic variants in *BRCA1*, *BRCA2* and *TP53*
--   Data generated between September 2023 to October 2025
--   One GI result per patient
 -   Patients only (no external quality assessment samples or controls)
+-   One GI result per patient
 -   Data from the live service only (no data from validation work)
+-   Data generated between September 2023 to October 2025
+-   Data from somatic variant testing for genetic variants in *BRCA1*, *BRCA2* and *TP53*
+
+Dr Morgan originally also requested data on germline testing for *BRCA1* and *BRCA2*.
 
 # Methods
 
-# Collate data from SeqOne csv files
+Preparing this data requires multiple steps and uses the `kintsugi` package.
+For each step I have included explanatory text alongside the R code.
+
+## Naming convention
+
+The naming convention for ovarian cancer testing terms is defined in the `names.qmd` vignette in `kintsugi`.
+
+## Collate data from SeqOne csv files
 
 Define the folder path and file structure for this review.
 
@@ -86,11 +95,10 @@ file.copy(from = gi_ws_filepaths,
 
 ```
 
-Collate GI results by reading the first line of each .csv file. Two files are excluded from this process (shown below) as they were from a failed pipeline run and have NA values for several variables. These samples were successfully re-analysed.
+Collate GI results by reading the first line of each .csv file. Two files are excluded from this process as they were from a failed pipeline run and have NA values for several variables. These samples were successfully re-analysed.
 
 ```{r}
 #| label: collate-seqone-data
-#| echo: FALSE
 
 seqone_files_with_nas <- c("WS144728_24045060 hrd-results.csv",
                            "WS144728_24044787 hrd-results.csv")
@@ -230,7 +238,7 @@ write_csv(gi_csv_cleaned_orps,
 
 ```
 
-# Collate data from DNA Database
+## Collate data from DNA Database
 
 Define the patients tested with the SeqOne GI method using their NHS numbers. Then extract all the DNA lab numbers recorded under those NHS numbers in DNA database.
 
@@ -263,7 +271,7 @@ stopifnot(nrow(dnadb_results) != 0)
 
 ```
 
-## Germline BRCA testing
+### Germline BRCA testing
 
 Find DNA Database results that are from Inherited Cancer Panel (ICP) testing. This is done using the "test" column of the "ResultsAccess" table, which is free type - there are many different ways that ICP testing has been written.
 
@@ -280,19 +288,7 @@ glvar_dnadb_results <- collect_results_by_vector(query_col = "test",
 
 `r length(unique(descriptions_icp()))` different ways have been found that the ICP panel has been described, which are listed below. In total, `r nrow(glvar_dnadb_results)` germline results have been found. These results range from `r format.Date(x = min(glvar_dnadb_results$genodate), format = "%d %B %Y")` to `r format.Date(x = max(glvar_dnadb_results$genodate), format = "%d %B %Y")`.
 
-```{r}
-#| label: tbl-icp-test-strings
-#| tbl-cap: "Unique descriptions of the ICP panel"
-#| echo: FALSE
-
-knitr::kable(glvar_dnadb_results |> 
-               filter(!duplicated(test)) |> 
-               select(test) |> 
-               arrange(test))
-
-```
-
-## Tumour BRCA testing
+### Tumour BRCA testing
 
 ```{r}
 #| label: identify-tbrca-results
@@ -305,7 +301,8 @@ tvar_dnadb_results <- collect_results_by_vector(query_col = "test",
 
 ```
 
-The script now does the same thing for tumour *BRCA* results. There are `r length(unique(descriptions_pansolid()))` different ways that tumour *BRCA* testing has been described, and `r nrow(tvar_dnadb_results)` results have been found, ranging from `r format.Date(x = min(tvar_dnadb_results$genodate), format = "%d %B %Y")` to `r format.Date(x = max(tvar_dnadb_results$genodate), format = "%d %B %Y")`.
+Now do the same thing for tumour *BRCA* results. 
+There are `r length(unique(descriptions_pansolid()))` different ways that tumour *BRCA* testing has been described, and `r nrow(tvar_dnadb_results)` results have been found, ranging from `r format.Date(x = min(tvar_dnadb_results$genodate), format = "%d %B %Y")` to `r format.Date(x = max(tvar_dnadb_results$genodate), format = "%d %B %Y")`.
 
 ```{r}
 #| label: export-dnadb-glvar-tvar-data
@@ -325,7 +322,9 @@ tvar_dnadb_extracted <- tvar_dnadb_results
 
 ```
 
-# Get data from iGene
+## Collate data from iGene
+
+iGene data can be accessed on the SQL Server using the "Eval_HRD" table which has been prepared by Des Halligan and Ryan Lam.
 
 ```{r}
 #| label: eval-hrd
@@ -343,6 +342,8 @@ stopifnot(length(setdiff(unique(eval_hrd$test_name), test_names)) == 0)
 stopifnot(ncol(eval_hrd) == 8)
 
 ```
+
+Restructure the data into wider format.
 
 ```{r}
 #| label: extract-tvar-and-glvar-results
@@ -366,9 +367,10 @@ gi_igene <- pivot_wider_by_test(df = eval_hrd,
 
 ```
 
+Check that no data has been lost during the previous step.
+
 ```{r}
 #| label: perform-checks
-#| include: FALSE
 
 tests_in_eval_hrd <- unique(eval_hrd$test_identifier)
 
@@ -381,9 +383,10 @@ stopifnot(length(setdiff(tests_in_eval_hrd, tests_in_wide_tables)) == 0)
 
 ```
 
+Remove any entries which do not have "headline results" which indicates that the results have not yet been authorised.
+
 ```{r}
 #| label: remove-entries-without-headlines
-#| include: FALSE
 
 glvar_igene_na <- glvar_igene |> 
   filter(is.na(glvar_headline_result))
@@ -407,6 +410,8 @@ iGene germline variant data ranges from `r format.Date(x = min(glvar_igene_no_na
 
 iGene tumour variant data ranges from `r format.Date(x = min(tvar_igene_no_na$test_order_date), format = "%d %B %Y")` to `r format.Date(x = max(tvar_igene_no_na$test_order_date), format = "%d %B %Y")`.
 
+Export the data.
+
 ```{r}
 #| label: export-igene-results
 
@@ -424,9 +429,15 @@ tvar_igene_extracted <- tvar_igene_no_na
 
 ```
 
-# Clean DNA Database data
+## Clean DNA Database data
 
-Annotate variant classifications
+There are 2 important differences between variant data in DNA Database and in iGene:
+
+1. iGene includes variant classifications whilst DNA Database does not 
+
+2. iGene includes a "headline result" column which includes what result was reported, whilst DNA Database does not.
+
+Annotate variant classifications to DNA Database germline results .
 
 ```{r}
 #| label: add-glvar-classifications
@@ -487,7 +498,7 @@ stopifnot(anyNA(samples_with_gl_cn_variants$glvar_icnv1_classification) == FALSE
 
 ```
 
-Add headline to germline results
+Add headline result to DNA Database germline results.
 
 ```{r}
 #| label: add-headline-to-glvar
@@ -509,7 +520,7 @@ stopifnot(anyNA(glvar_dnadb_cleaned$glvar_headline_result) == FALSE)
 
 ```
 
-Add variant classifications to tumour results
+Add variant classifications to DNA Database tumour results.
 
 ```{r}
 #| label: add-classifications-to-tvar
@@ -537,7 +548,7 @@ stopifnot(anyNA(samples_with_tumour_variants$tvar_seqv1_description) == FALSE)
 
 ```
 
-Add headline to tumour variant results
+Add headline result to DNA Database tumour variant results.
 
 ```{r}
 #| label: add-headline-to-tvar
@@ -561,6 +572,8 @@ stopifnot(anyNA(tvar_dnadb_cleaned$tvar_headline_result) == FALSE)
 
 ```
 
+Export cleaned data.
+
 ```{r}
 #| label: export-dnadb-cleaned-results
 
@@ -570,7 +583,9 @@ write_csv(glvar_dnadb_cleaned,
 
 ```
 
-# Bind data from DNA Database and iGene
+## Bind data from DNA Database and iGene
+
+Identify patients which have results on DNA Database and iGene.
 
 ```{r}
 #| label: patients-on-both-dbs
@@ -583,7 +598,9 @@ dnadb_nhsno <- c(unique(tvar_dnadb_cleaned$nhsno),
 
 ```
 
-There are `r length(intersect(igene_nhsno, dnadb_nhsno))` patients with results on DNA Database and iGene".
+There are `r length(intersect(igene_nhsno, dnadb_nhsno))` patients with results on DNA Database and iGene.
+
+In order to join the DNA Database and iGene data, they must have the same column names.
 
 ```{r}
 #| label: prepare-igene-data-for-bind
@@ -619,6 +636,8 @@ tvar_igene_for_bind <- tvar_igene_extracted |>
 stopifnot(nrow(tvar_igene_for_bind) == nrow(tvar_igene_extracted))
 
 ```
+
+Add empty iGene columns to DNA Database germline data.
 
 ```{r}
 #| label: prepare-glvar-dnadb-for-bind
@@ -664,6 +683,8 @@ glvar_dnadb_for_bind <- glvar_dnadb_cleaned |>
 stopifnot(nrow(glvar_dnadb_for_bind) == nrow(glvar_dnadb_cleaned))
 
 ```
+
+Add empty iGene columns to DNA Database tumour variant data.
 
 ```{r}
 #| label: prepare-tvar-dnadb-for-bind
@@ -715,6 +736,8 @@ stopifnot(nrow(tvar_dnadb_for_bind) == nrow(tvar_dnadb_cleaned))
 
 ```
 
+Bind iGene and DNA Database germline data.
+
 ```{r}
 #| label: bind-and-annotate-glvar-data
 
@@ -762,6 +785,8 @@ stopifnot(anyNA(samples_with_gl_variants$glvar_headline_classification) == FALSE
 
 ```
 
+Filter to one result per patient.
+
 ```{r}
 #| label: filter-glvar-orpp
 
@@ -793,6 +818,8 @@ stopifnot(nrow(glvar_dnadb_igene_bound_orpp |>
 
 ```
 
+Bind iGene and DNA Database tumour variant data.
+
 ```{r}
 #| label: bind-and-annotate-tlvar-data
 
@@ -823,6 +850,8 @@ stopifnot(anyNA(samples_with_t_variants$tvar_seqv1_percent) == FALSE)
 
 ```
 
+Filter tumour data to one result per patient.
+
 ```{r}
 #| label: filter-tvar-orpp
 
@@ -836,6 +865,8 @@ tvar_dnadb_igene_bound_orpp <- tvar_dnadb_igene_bound_genes |>
   filter(!duplicated(nhsno)) 
 
 ```
+
+Perform checks on data.
 
 ```{r}
 #| label: igene-dnadb-bind-checks
@@ -855,6 +886,8 @@ stopifnot(nrow(tvar_dnadb_igene_bound_orpp |>
 
 ```
 
+Export data.
+
 ```{r}
 #| label: export-igene-dnadb-data
 
@@ -868,9 +901,15 @@ write_csv(tvar_dnadb_igene_bound_orpp,
 
 ```
 
-# Join data together
+## Join data from iGene, DNA Database and csv files
 
-Join GI and glvar by NHS number
+Now the datasets can be joined together for analysis. 
+There are different ways in which the data can be joined:
+- At the patient level (by NHS number)
+- At the referral level (by iGene R number)
+- At the sample level (by DNA lab number)
+
+Join GI and glvar by NHS number.
 
 ```{r}
 #| label: join-gi-glvar-nhsno
@@ -890,7 +929,7 @@ gi_glvar_joined <- gi_csv_cleaned_orpp_for_join |>
 
 ```
 
-Join GI and tumour variant data
+Join GI and tumour variant data by DNA lab number and NHS number.
 
 ```{r}
 #| label: join-gi-tvar
@@ -924,7 +963,7 @@ gi_tvar_joined_by_pathno <- gi_csv_cleaned_orpp_for_join |>
 
 ```
 
-Join tvar and glvar data
+Join tvar and glvar data by NHS number.
 
 ```{r}
 #| label: join-tvar-glvar
@@ -936,6 +975,8 @@ glvar_tvar_joined <- glvar_dnadb_igene_bound_orpp |>
              relationship = "one-to-one")
 
 ```
+
+Export joined data to folder.
 
 ```{r}
 #| label: export-joined-data
@@ -963,7 +1004,9 @@ write_csv(glvar_tvar_joined,
 
 ```
 
-# Final results
+# Results
+
+## Figures and Tables
 
 ```{r}
 #| label: tbl-gi-results
@@ -982,13 +1025,6 @@ tbl_gi_orpp <- gi_csv_cleaned_orpp |>
   mutate("Percent (%)" = (round((n / sum(n))*100, 1))) |> 
   rename("Patients" = n)
 
-tbl_gi_results <- tbl_gi_orps |> 
-  left_join(tbl_gi_orpp, by = "status") |> 
-  rename("GI status" = status) |> 
-  adorn_totals()
-
-knitr::kable(tbl_gi_results)
-
 knitr::kable(tbl_gi_orpp |> 
                rename("GI status" = status) |> 
                adorn_totals())
@@ -998,7 +1034,7 @@ knitr::kable(tbl_gi_orpp |>
 ```{r}
 #| label: tbl-gi-glvar-all-results
 #| tbl-cap: "Patients with GI and germline variant results"
-#| echo: FALSE
+#| include: FALSE
 
 glvar_all_results <- gi_glvar_joined |> 
   group_by(data_source) |> 
@@ -1058,7 +1094,7 @@ gi_tvar_joined_conclusive <- gi_tvar_joined_by_labno |>
 
 ```{r}
 #| label: tbl-gi-glvar
-#| echo: FALSE
+#| include: FALSE
 #| tbl-cap: "GI results and germline testing results"
 
 tbl_gi_glvar <- gi_glvar_joined |>
@@ -1076,7 +1112,7 @@ knitr::kable(tbl_gi_glvar)
 ```{r}
 #| label: tbl-gi-tvar
 #| tbl-cap: "GI results and tumour testing results (joined by DNA number)"
-#| echo: FALSE
+#| include: FALSE
 
 tbl_gi_tvar <- gi_tvar_joined_by_labno |> 
   group_by(status, tvar_headline_result) |> 
@@ -1092,7 +1128,7 @@ knitr::kable(tbl_gi_tvar)
 
 ```{r}
 #| label: fig-gi-gl-results-variants
-#| echo: FALSE
+#| include: FALSE
 #| fig-cap: "GI results for patients with reportable germline variants"
 
 variant_class_colours <- c("#FF3300",
@@ -1119,7 +1155,7 @@ gi_glvar_plot
 
 ```{r}
 #| label: fig-gi-tvar-results-variants
-#| include: FALSE
+#| echo: FALSE
 #| fig-cap: "GI results for patients with somatic BRCA1/2 variants"
 
 gi_tvar_plot <- gi_tvar_joined_conclusive |> 
@@ -1130,7 +1166,10 @@ gi_tvar_plot <- gi_tvar_joined_conclusive |>
   geom_jitter(shape = 21, aes(fill = tvar_headline_classification),
               width = 0.2) +
   theme_bw() +
-  scale_fill_manual(values = variant_class_colours) +
+  scale_fill_manual(values = c("#FF9900", # Likely pathogenic
+                               "#FF3300", # Pathogenic
+                               "#FF3300"  # Oncogenic
+                               )) +
   geom_hline(yintercept = 0.5, linetype = "dashed") +
   labs(x = "Tumour gene", y = "SeqOne GI score",
        fill = "Variant classification")
@@ -1141,6 +1180,7 @@ gi_tvar_plot
 
 ```{r}
 #| label: gi-neg-gl-pos
+#| include: FALSE
 
 glvar_neg_gi <- gi_glvar_joined |> 
   filter(glvar_headline_result == "Reportable variant(s) detected") |> 
@@ -1150,12 +1190,10 @@ glvar_neg_gi <- gi_glvar_joined |>
 
 ```
 
-There are `r nrow(glvar_neg_gi)` samples with negative GI results and germline variants.
-
 ```{r}
 #| label: tbl-gi-neg-gl-pos
 #| tbl-cap: "GI negative samples with germline variants"
-#| echo: FALSE
+#| include: FALSE
 
 knitr::kable(glvar_neg_gi |> 
                select(rno.x, gi_labno, score, 
@@ -1199,7 +1237,7 @@ glvar_tvar_brca <- glvar_tvar_joined |>
 
 ```{r}
 #| label: fig-gi-glvar-histogram
-#| echo: FALSE
+#| include: FALSE
 #| fig-cap: "GI score histogram stratified by germline BRCA status"
 
 gi_glvar_histogram <- gi_glvar_joined_conclusive |> 
@@ -1244,7 +1282,10 @@ gi_tvar_percent_plot <- gi_tvar_joined_conclusive |>
   filter(tvar_gene %in% c("BRCA1", "BRCA2")) |> 
   ggplot(aes(x = tvar_seqv1_percent, y = score)) +
   geom_point(shape = 21, aes(fill = tvar_headline_classification)) +
-  scale_fill_manual(values = variant_class_colours) +
+  scale_fill_manual(values = c("#FF9900", # Likely pathogenic
+                               "#FF3300", # Pathogenic
+                               "#FF3300"  # Oncogenic
+                               )) +
   xlim(0, 100) +
   theme_bw() +
   theme(legend.position = "bottom") +
@@ -1258,7 +1299,7 @@ gi_tvar_percent_plot
 
 ```{r}
 #| label: patients-over-time
-#| echo: FALSE
+#| include: FALSE
 #| fig-cap: "Patients tested on SeqOne service"
 
 gi_data_sum <- gi_csv_cleaned_orpp |> 
@@ -1285,7 +1326,7 @@ seqone_timeplot
 
 ```{r}
 #| label: gi-score-histogram
-#| echo: FALSE
+#| include: FALSE
 
 safe_blue <- "#88CCEE"
 safe_red <- "#CC6677"
@@ -1310,11 +1351,12 @@ gi_csv_cleaned_orpp |>
 
 ```
 
-# Export results in correct format
+## Export results in requested format
 
 ```{r}
+#| label: export-data-for-publication
 
-final_export <- gi_tvar_joined_by_nhsno |> 
+data_for_publication <- gi_tvar_joined_by_nhsno |> 
   select(
     nhsno,
     tvar_gene,
@@ -1334,4 +1376,11 @@ final_export <- gi_tvar_joined_by_nhsno |>
     rad51b_cn
   )
 
+write_csv(data_for_publication,
+          paste0(joined_folder, "data_for_publication.csv"))
+
 ```
+
+# Conclusion
+
+`r nrow(data_for_publication)` results have been identified which meet the data request criteria.
