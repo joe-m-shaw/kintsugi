@@ -129,7 +129,8 @@ Get information (iGene R number, iGene S number, first name, surname, NHS number
 
 gi_labnos <- unique(gi_ws_collated$labno)
 
-gi_ids <- collect_dnadb_ids_by_labno(labno_vector = gi_labnos)
+gi_ids <- collect_ids_by_vector(query_col = "labno",
+                                query_vector = gi_labnos)
 
 gi_csv_collated_patient_info <- gi_ws_collated |> 
   left_join(gi_ids, by = "labno",
