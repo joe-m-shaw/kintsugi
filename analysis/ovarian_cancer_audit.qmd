@@ -1197,16 +1197,23 @@ gi_tvar_plot
 ```
 
 ```{r}
-#| label: tbl-gi-neg-gl-pos
-#| tbl-cap: "GI negative samples with germline variants"
-#| echo: FALSE
+#| label: gi-neg-gl-pos
 
 glvar_neg_gi <- gi_glvar_joined |> 
   filter(glvar_headline_result == "Reportable variant(s) detected") |> 
   filter(status != "Non-conclusive") |> 
   filter(score < 0.5) |> 
   filter(glvar_seqv1_classification %in% c("Pathogenic", "Likely pathogenic"))
-  
+
+```
+
+There are `r nrow(glvar_neg_gi)` samples with negative GI results and germline variants.
+
+```{r}
+#| label: tbl-gi-neg-gl-pos
+#| tbl-cap: "GI negative samples with germline variants"
+#| echo: FALSE
+
 knitr::kable(glvar_neg_gi |> 
                select(rno.x, gi_labno, score, 
                       gl_gene) |> 
