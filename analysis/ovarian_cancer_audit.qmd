@@ -28,14 +28,13 @@ This is a data audit for the ovarian cancer testing service which will provide d
 
 Dr Morgan would like the data meeting the following criteria:
 
-- Data from genomic instability (GI) testing performed at the Manchester lab using the SeqOne SomaHRD pipeline
-- Ovarian cancer samples only
-- Data from somatic variant testing for genetic variants in *BRCA1*, *BRCA2* and 
-*TP53*
-- Data generated between September 2023 to October 2025
-- One GI result per patient
-- Patients only (no external quality assessment samples or controls)
-- Data from the live service only (no data from validation work)
+-   Data from genomic instability (GI) testing performed at the Manchester lab using the SeqOne SomaHRD pipeline
+-   Ovarian cancer samples only
+-   Data from somatic variant testing for genetic variants in *BRCA1*, *BRCA2* and *TP53*
+-   Data generated between September 2023 to October 2025
+-   One GI result per patient
+-   Patients only (no external quality assessment samples or controls)
+-   Data from the live service only (no data from validation work)
 
 # Methods
 
@@ -58,15 +57,15 @@ seqone_gi_csv_folder <- paste0(initial_folder, "seqone_gi_csvs/")
 
 ```
 
-Identify worksheet numbers and file locations for all SeqOne GI testing at the North West GLH.
-Results are exported from the SeqOne website as .csv files and saved in folders named after the worksheet identifier.
+Identify worksheet numbers and file locations for all SeqOne GI testing at the North West GLH. Results are exported from the SeqOne website as .csv files and saved in folders named after the worksheet identifier.
 
 ```{r}
 #| label: find-seqone-files
 
-gi_ws_info <- collect_seqone_gi_worksheets()
+gi_ws_info <- collect_worksheets_by_vector(query_col = "description",
+                             query_vector = descriptions_seqone_gi())
 
-gi_ws_list <- list(gi_ws_info$ws)
+gi_ws_list <- list(gi_ws_info$worksheet)
 
 gi_ws_filepaths <- gi_ws_list |> 
   purrr::map(\(gi_ws_list) list_worksheet_filepaths(worksheet = gi_ws_list,
@@ -156,7 +155,7 @@ gi_csv_collated_validation_info <- mutate_seqone_gi_df(df = gi_csv_collated_pati
 ```
 
 Filter results to only include patient samples tested on the live service, and filter results to one result per patient.
-Some patient have multiple samples. 
+Some patient have multiple samples.
 To select samples with conclusive results (positive or negative GI statuses), arrange by NHS number and status and then remove NHS number duplicates.
 
 ```{r}
@@ -315,9 +314,7 @@ glvar_dnadb_results <- dnadb_results |>
 
 `r length(icp_test_strings)` different ways have been found that the ICP panel has been described, which are listed below.
 In total, `r nrow(glvar_dnadb_results)` germline results have been found.
-These results range from
-`r format.Date(x = min(glvar_dnadb_results$genodate), format = "%d %B %Y")` to
-`r format.Date(x = max(glvar_dnadb_results$genodate), format = "%d %B %Y")`.
+These results range from `r format.Date(x = min(glvar_dnadb_results$genodate), format = "%d %B %Y")` to `r format.Date(x = max(glvar_dnadb_results$genodate), format = "%d %B %Y")`.
 
 ```{r}
 #| label: tbl-icp-test-strings
@@ -352,10 +349,7 @@ tvar_dnadb_results <- dnadb_results |>
 ```
 
 The script now does the same thing for tumour *BRCA* results.
-There are `r length(pansolid_test_strings)` different ways that tumour *BRCA* testing has been described, and 
-`r nrow(tvar_dnadb_results)` results have been found, ranging from
-`r format.Date(x = min(tvar_dnadb_results$genodate), format = "%d %B %Y")` to
-`r format.Date(x = max(tvar_dnadb_results$genodate), format = "%d %B %Y")`.
+There are `r length(pansolid_test_strings)` different ways that tumour *BRCA* testing has been described, and `r nrow(tvar_dnadb_results)` results have been found, ranging from `r format.Date(x = min(tvar_dnadb_results$genodate), format = "%d %B %Y")` to `r format.Date(x = max(tvar_dnadb_results$genodate), format = "%d %B %Y")`.
 
 ```{r}
 #| label: export-dnadb-glvar-tvar-data
@@ -449,20 +443,13 @@ tvar_igene_no_na <- tvar_igene |>
 
 ```
 
-
 `r nrow(glvar_igene_na)` germline entries with no headline result were removed.
 
 `r nrow(tvar_igene_na)` tumour entries with no headline result were removed.
 
-iGene germline variant data ranges from 
-`r format.Date(x = min(glvar_igene_no_na$test_order_date), format = "%d %B %Y")`
-to
-`r format.Date(x = max(glvar_igene_no_na$test_order_date), format = "%d %B %Y")`.
+iGene germline variant data ranges from `r format.Date(x = min(glvar_igene_no_na$test_order_date), format = "%d %B %Y")` to `r format.Date(x = max(glvar_igene_no_na$test_order_date), format = "%d %B %Y")`.
 
-iGene tumour variant data ranges from
-`r format.Date(x = min(tvar_igene_no_na$test_order_date), format = "%d %B %Y")`
-to
-`r format.Date(x = max(tvar_igene_no_na$test_order_date), format = "%d %B %Y")`.
+iGene tumour variant data ranges from `r format.Date(x = min(tvar_igene_no_na$test_order_date), format = "%d %B %Y")` to `r format.Date(x = max(tvar_igene_no_na$test_order_date), format = "%d %B %Y")`.
 
 ```{r}
 #| label: export-igene-results
@@ -1392,4 +1379,3 @@ final_export <- gi_tvar_joined_by_nhsno |>
   )
 
 ```
-

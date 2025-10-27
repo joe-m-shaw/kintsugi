@@ -1,5 +1,16 @@
 descriptions_pansolid <- function(){
   
+  #' Descriptions of PanSolid next generation sequencing worksheets
+  #' 
+  #' The "descriptions" column on DNA Database is free-type, which means that 
+  #' there are many different ways that PanSolid next generation sequencing
+  #' worksheets have been described. 
+  #'
+  #' @returns A vector of unique descriptions for PanSolid worksheets
+  #' @export
+  #'
+  #' @examples pansolid_strings <- descriptions_pansolid()
+  
   dnadb_pcr_new <- connect_to_lazy_tbl(table = "PCR_New") |> 
     dplyr::select(description) |> 
     dplyr::collect()
@@ -33,7 +44,3 @@ descriptions_pansolid <- function(){
   return(output)
   
 }
-
-
-
-
