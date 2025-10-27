@@ -1,5 +1,5 @@
 Package: kintsugi
-Title: Rejoin Genetic Data
+Title: Golden Joining of Genetic Data
 Version: 0.0.0.9000
 Authors@R: 
     person("Joe M.", "Shaw", , "joseph.shaw2@mft.nhs.uk", role = c("aut", "cre"),
