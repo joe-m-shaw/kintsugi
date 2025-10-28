@@ -33,15 +33,21 @@ Dr Morgan would like the data meeting the following criteria:
 -   Patients only (no external quality assessment samples or controls)
 -   One GI result per patient
 -   Data from the live service only (no data from validation work)
--   Data generated between September 2023 to October 2025
+-   Data generated between December 2023 to October 2025
 -   Data from somatic variant testing for genetic variants in *BRCA1*, *BRCA2* and *TP53*
 
-Dr Morgan originally also requested data on germline testing for *BRCA1* and *BRCA2*.
+Dr Morgan originally also requested data on germline testing for *BRCA1* and *BRCA2*. Germline testing data is now no longer required for this publication, but the code for collating germline data has been left to allow easier collation for the next publication.
 
 # Methods
 
-Preparing this data requires multiple steps and uses the `kintsugi` package.
-For each step I have included explanatory text alongside the R code.
+Preparing this data requires multiple steps and uses the `kintsugi` package. For each step I have included explanatory text alongside the R code.
+
+Here is an overview of the approach I have taken:
+
+-   Collate all GI data from individual csv files saved on the S drive
+-   Remove samples tested for validation purposes and external quality assessment
+-   Identify somatic and germline tests results for these patients on both DNA Database and iGene.
+-   Clean the somatic and germline test data from DNA Database and iGene so that they can be joined together as single tables: all somatic test results in one table, all germline test results in another table.
 
 ## Naming convention
 
@@ -83,6 +89,8 @@ gi_ws_filepaths <- gi_ws_list |>
 
 ```
 
+`r length(gi_ws_filepaths)` GI csv files have been identified.
+
 Copy files to review folder.
 
 ```{r}
@@ -100,9 +108,6 @@ Collate GI results by reading the first line of each .csv file. Two files are ex
 ```{r}
 #| label: collate-seqone-data
 
-seqone_files_with_nas <- c("WS144728_24045060 hrd-results.csv",
-                           "WS144728_24044787 hrd-results.csv")
-
 seqone_csv_filepaths <- list.files(path = seqone_gi_csv_folder,
                                    full.names = TRUE,
                                    recursive = FALSE,
@@ -116,6 +121,8 @@ seqone_csv_filepaths_na_removed <- seqone_csv_filepaths[-grep(
   paste(seqone_files_with_nas, collapse = "|"), 
   seqone_csv_filepaths)]
 
+stopifnot(length(seqone_csv_filepaths_na_removed) == length(seqone_csv_filepaths)-2)
+
 gi_ws_collated <- seqone_csv_filepaths_na_removed |> 
   map(\(seqone_csv_filepaths_na_removed) read_seqone_gi_csv(seqone_csv_filepaths_na_removed)) |> 
   list_rbind() |> 
@@ -125,7 +132,13 @@ gi_ws_collated <- seqone_csv_filepaths_na_removed |>
                                  pattern = "(WS[0-9]{6})_(\\d{8})",
                                  group = 1))
 
+
+gi_csv_duplicates <- gi_ws_collated |> 
+  filter(duplicated(labno))
+
 ```
+
+There are `r nrow(gi_csv_duplicates)` samples with more than one SeqOne GI csv result.
 
 Get information (iGene R number, iGene S number, first name, surname, NHS number and pathology block identifier) from DNA Database for each DNA laboratory number.
 
@@ -156,7 +169,29 @@ Annotate the collated data to identify samples which are not from patients (GenQ
 ```{r}
 #| label: annotate-validation-data
 
-gi_csv_collated_validation_info <- mutate_seqone_gi_df(df = gi_csv_collated_patient_info)
+validation_ws = c(# DOC6192
+                  "WS133557", "WS134687", "WS134928", 
+                  "WS135001", "WS135498",
+                  # DOC6255
+                  "WS136827", "WS138201", "WS138439", 
+                  "WS138627",
+                  # DOC6588
+                  "WS147582", "WS149085", "WS149086")
+
+gi_csv_collated_validation_info <- gi_csv_collated_patient_info |> 
+    mutate(service_validation = case_when(
+      worksheet %in% validation_ws ~"validation",
+      # 2 validation samples were on WS138061. The other samples on this
+      # worksheet were live clinical samples
+      (worksheet == "WS138061" & 
+         labno %in% c("23047082", "23053359")) ~"validation",
+      TRUE ~"service"
+    ),
+    patient_non_patient = dplyr::case_when(
+      surname %in% c("Seraseq", "GenQA") ~"non-patient",
+      TRUE ~"patient"
+    ),
+    full_name = paste0(firstname, " ", surname))
 
 ```
 
@@ -301,8 +336,7 @@ tvar_dnadb_results <- collect_results_by_vector(query_col = "test",
 
 ```
 
-Now do the same thing for tumour *BRCA* results. 
-There are `r length(unique(descriptions_pansolid()))` different ways that tumour *BRCA* testing has been described, and `r nrow(tvar_dnadb_results)` results have been found, ranging from `r format.Date(x = min(tvar_dnadb_results$genodate), format = "%d %B %Y")` to `r format.Date(x = max(tvar_dnadb_results$genodate), format = "%d %B %Y")`.
+Now do the same thing for tumour *BRCA* results. There are `r length(unique(descriptions_pansolid()))` different ways that tumour *BRCA* testing has been described, and `r nrow(tvar_dnadb_results)` results have been found, ranging from `r format.Date(x = min(tvar_dnadb_results$genodate), format = "%d %B %Y")` to `r format.Date(x = max(tvar_dnadb_results$genodate), format = "%d %B %Y")`.
 
 ```{r}
 #| label: export-dnadb-glvar-tvar-data
@@ -433,9 +467,9 @@ tvar_igene_extracted <- tvar_igene_no_na
 
 There are 2 important differences between variant data in DNA Database and in iGene:
 
-1. iGene includes variant classifications whilst DNA Database does not 
+1.  iGene includes variant classifications whilst DNA Database does not
 
-2. iGene includes a "headline result" column which includes what result was reported, whilst DNA Database does not.
+2.  iGene includes a "headline result" column which includes what result was reported, whilst DNA Database does not.
 
 Annotate variant classifications to DNA Database germline results .
 
@@ -744,7 +778,7 @@ Bind iGene and DNA Database germline data.
 glvar_dnadb_igene_bound <- rbind(glvar_dnadb_for_bind,
                                     glvar_igene_for_bind)
 
-gl_genes <- c("BRCA1", "BRCA2", "BRIP1", "PALB2", "RAD51D", 
+gl_genes <- c("BRCA1", "BRCA2", "BRIP1", "PALB2", "RAD51D", "RAD51C",
               "MSH2", "MSH6", "CHEK2")
 
 gl_gene_regex <- paste0(".*(", paste0(gl_genes, collapse = "|"), ").*")
@@ -903,11 +937,7 @@ write_csv(tvar_dnadb_igene_bound_orpp,
 
 ## Join data from iGene, DNA Database and csv files
 
-Now the datasets can be joined together for analysis. 
-There are different ways in which the data can be joined:
-- At the patient level (by NHS number)
-- At the referral level (by iGene R number)
-- At the sample level (by DNA lab number)
+Now the datasets can be joined together for analysis. There are different ways in which the data can be joined: - At the patient level (by NHS number) - At the referral level (by iGene R number) - At the sample level (by DNA lab number)
 
 Join GI and glvar by NHS number.
 
@@ -1358,20 +1388,17 @@ gi_csv_cleaned_orpp |>
 
 data_for_publication <- gi_tvar_joined_by_nhsno |> 
   select(
-    nhsno,
     tvar_gene,
     tvar_seqv1_description,
     tvar_seqv1_percent,
-    # tbrca reference sequence
     tvar_seqv1_classification,
+    # GI results
     coverage,
     pct_mapped_reads,
     lga,
     lpc,
     score,
     status,
-    # Add TP53 data
-    # Add additional HRR gene mutations
     ccne1_cn,
     rad51b_cn
   )
