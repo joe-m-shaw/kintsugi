@@ -85,6 +85,13 @@ read_seqone_gi_csv <- function(filepath,
     warning(paste0("GI confidence is not between 0-1: ", filename))
   }
   
+  if(!grepl(x = output$sample, pattern = "WS\\d{6}_\\d{8}")){
+    warning(paste0("Sample identifier is not in expected format: ",
+                   output$sample,
+                   " see file - ",
+                   filename))
+  }
+
   return(output)
   
 }

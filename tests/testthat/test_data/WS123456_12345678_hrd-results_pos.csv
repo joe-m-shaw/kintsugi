@@ -1,0 +1,4 @@
+sample,analysis_date,somahrd_version,LGA,LPC,score,status,brca_status,brca_mutation,ccne1_cn,rad51b_cn,coverage,pct_mapped_reads,pct_tum_cell,gi_confidence,low_tumor_fraction
+WS123456_12345678,10/08/2025,v1.2.13,101,40,1,Positive,NA,NA,2,4,1,0.99,0.31,0.98,1
+,,,,,,,,,,,,,,,
+This is an example of a SeqOne genomic instability file for the purposes of function testing. This data is made up. It is not data from a real patient.,,,,,,,,,,,,,,,

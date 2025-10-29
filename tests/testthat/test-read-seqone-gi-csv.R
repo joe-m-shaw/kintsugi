@@ -1,6 +1,6 @@
 test_that("read_seqone_gi_csv works for a standard sample", {
   
-  test_filepath <- "test_data/WS123456_12345678_hrd-results.csv"
+  test_filepath <- "test_data/WS123456_12345678_hrd-results_neg.csv"
   
   expected_tibble <- tibble::tibble(
     "sample"	 = "WS123456_12345678",
@@ -31,7 +31,28 @@ test_that("read_seqone_gi_csv works for a standard sample", {
   
 })
 
+test_that("read_seqone_gi_csv gives warning for high LGA value", {
+  
+  test_filepath <- "test_data/WS123456_12345678_hrd-results_pos.csv"
+  
+  expect_warning(read_seqone_gi_csv(test_filepath), 
+                 regexp = "LGA value is not in range 0-100")
 
+})
 
+test_that("read_seqone_gi_csv gives warning when sample format is wrong", {
+  
+  test_filepath <- "test_data/WS123456_12345678_hrd-results_wrong_sample_format.csv"
+  
+  expect_warning(read_seqone_gi_csv(test_filepath), 
+                 regexp = "Sample identifier is not in expected format")
+  
+})
 
-
+test_that("read_seqone_gi_csv gives warning when column name is changed", {
+  
+  test_filepath <- "test_data/WS123456_12345678_hrd-results_new_column.csv"
+  
+  expect_warning(read_seqone_gi_csv(test_filepath))
+  
+})
