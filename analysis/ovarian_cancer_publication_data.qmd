@@ -413,6 +413,15 @@ write_csv(tvar_dnadb_extracted,
 
 iGene data can be accessed on the SQL Server using the "Eval_HRD" table which has been prepared by Des Halligan and Ryan Lam.
 
+This table includes data from the following somatic variant panels:
+
+- M2_tBRCA_PS
+- M2_tBRCA_PS v2.a
+- M2_tBRCA_PS v2.b
+
+There are some panels which a minority of patients receive, such as "OvarianEXT_PS v2.b" and "M119_PAEDEXT_PS".
+Results from these panels are not included in this analysis.
+
 ```{r}
 #| label: eval-hrd
 
@@ -1070,9 +1079,9 @@ gi_tvar_joined_by_labno <- gi_csv_cleaned_orpp_for_join |>
              relationship = "one-to-one") 
 
 gi_tvar_joined_by_nhsno <- gi_csv_cleaned_orpp_for_join |> 
-  left_join(tvar_dnadb_igene_bound_orpp_for_join,
+  inner_join(tvar_dnadb_igene_bound_orpp_for_join,
              by = "nhsno",
-             relationship = "one-to-one") 
+             relationship = "one-to-one")
 
 gi_tvar_joined_by_rno <- gi_csv_cleaned_orpp_for_join |> 
   inner_join(tvar_dnadb_igene_bound_orpp_for_join,
@@ -1478,32 +1487,41 @@ gi_csv_cleaned_orpp |>
 
 ## Export results in requested format
 
-```{r}
-#| label: export-data-for-publication
+Restrict the dataset to results between 1st December 2023 and 20th October 2025.
+The date used for this step is the date of the SeqOne genomic instability analysis.
 
-data_for_publication <- gi_tvar_joined_by_nhsno |> 
-  filter(date < "2025-10-20 00:00:00" &
-           date > "2023-12-01 00:00:00") |> 
-  mutate(
-    tvar_icnv1_state = case_when(
-      !tvar_icnv1_description %in% c("BRCA1", "BRCA2") ~NA,
-      TRUE ~tvar_icnv1_state
-    ),
-    tvar_icnv1_classification = case_when(
-      !tvar_icnv1_description %in% c("BRCA1", "BRCA2") ~NA,
-      TRUE ~tvar_icnv1_classification
-    ),
-    tvar_icnv1_description = case_when(
-      !tvar_icnv1_description %in% c("BRCA1", "BRCA2") ~NA,
-      TRUE ~tvar_icnv1_description
-    )) |> 
+```{r}
+#| label: restrict-date-range
+
+gi_tvar_joined_by_nhsno_date_restricted <- gi_tvar_joined_by_nhsno |> 
+  filter(date > "2023-12-01 00:00:00" &
+           date < "2025-10-20 00:00:00") |> 
+  rename(tvar_data_source = data_source)
+
+# Check for duplicates
+stopifnot(anyDuplicated(gi_tvar_joined_by_nhsno_date_restricted$nhsno) == 0)
+
+# Check for EQA samples
+stopifnot(length(grep(pattern = "EQA|Sera", 
+                      x = gi_tvar_joined_by_nhsno_date_restricted$full_name,
+                      ignore.case = TRUE,
+                      value = TRUE)) == 0)
+
+```
+
+Select required columns.
+
+```{r}
+#| label: select-columns
+
+gi_tvar_joined_by_nhsno_select <- gi_tvar_joined_by_nhsno_date_restricted |> 
   select(
     gi_labno,
-    date,
-    nhsno,
+    rno.x,
     full_name,
-    service_validation,
-    patient_non_patient,
+    date,
+    tvar_data_source,
+    tvar_headline_result,
     tvar_gene1,
     tvar_seqv1_description,
     tvar_seqv1_percent,
@@ -1526,10 +1544,102 @@ data_for_publication <- gi_tvar_joined_by_nhsno |>
     rad51b_cn
   )
 
-write_csv(data_for_publication,
+```
+
+The dataset includes variants in the following genes which are not *BRCA1* or *BRCA2*.
+
+```{r}
+#| label: non-brca-genes
+
+non_brca_gene_data <- gi_tvar_joined_by_nhsno_select |> 
+  filter(!tvar_gene1 %in% c("BRCA1", "BRCA2", NA))
+
+unique(non_brca_gene_data$tvar_gene1)
+
+```
+
+Remove data for variants in genes which aren't *BRCA1* or *BRCA2*.
+
+```{r}
+#| label: remove-non-brca-gene-info
+
+gi_tvar_joined_by_nhsno_brca_only <- gi_tvar_joined_by_nhsno_select |> 
+  mutate(
+    # SNV 1 data
+    tvar_gene1 = case_when(
+      !tvar_gene1 %in% c("BRCA1", "BRCA2") ~NA,
+      TRUE ~tvar_gene1),
+    tvar_seqv1_description = case_when(
+      !tvar_gene1 %in% c("BRCA1", "BRCA2") ~NA,
+      TRUE ~tvar_seqv1_description),
+    tvar_seqv1_percent = case_when(
+      !tvar_gene1 %in% c("BRCA1", "BRCA2") ~NA,
+      TRUE ~tvar_seqv1_percent),
+    tvar_seqv1_classification = case_when(
+      !tvar_gene1 %in% c("BRCA1", "BRCA2") ~NA,
+      TRUE ~tvar_seqv1_classification),
+    # SNV 2 data
+    tvar_gene2 = case_when(
+      !tvar_gene2 %in% c("BRCA1", "BRCA2") ~NA,
+      TRUE ~tvar_gene2),
+    tvar_seqv2_description = case_when(
+      !tvar_gene2 %in% c("BRCA1", "BRCA2") ~NA,
+      TRUE ~tvar_seqv2_description),
+    tvar_seqv2_percent = case_when(
+      !tvar_gene2 %in% c("BRCA1", "BRCA2") ~NA,
+      TRUE ~tvar_seqv2_percent),
+    tvar_seqv2_classification = case_when(
+      !tvar_gene2 %in% c("BRCA1", "BRCA2") ~NA,
+      TRUE ~tvar_seqv2_classification),
+    # CNV data
+    tvar_icnv1_state = case_when(
+      !tvar_icnv1_description %in% c("BRCA1", "BRCA2") ~NA,
+      TRUE ~tvar_icnv1_state
+    ),
+    tvar_icnv1_classification = case_when(
+      !tvar_icnv1_description %in% c("BRCA1", "BRCA2") ~NA,
+      TRUE ~tvar_icnv1_classification
+    ),
+    tvar_icnv1_description = case_when(
+      !tvar_icnv1_description %in% c("BRCA1", "BRCA2") ~NA,
+      TRUE ~tvar_icnv1_description
+    )) 
+
+# 24005273 - KRAS variant
+stopifnot(nrow(gi_tvar_joined_by_nhsno_brca_only |> 
+                 filter(gi_labno == "24005273" &
+                          is.na(tvar_gene1))) == 1)
+
+# 25030704 - TP53 variant
+stopifnot(nrow(gi_tvar_joined_by_nhsno_brca_only |> 
+                 filter(gi_labno == "25030704" &
+                          is.na(tvar_gene2))) == 1)
+
+# 24062986 - ERBB2 amplification
+stopifnot(nrow(gi_tvar_joined_by_nhsno_brca_only |> 
+                 filter(gi_labno == "24062986" &
+                          is.na(tvar_icnv1_description))) == 1)
+
+
+```
+
+Export the final dataset.
+
+```{r}
+#| label: export-final-dataset
+
+data_for_publication <- gi_tvar_joined_by_nhsno_brca_only
+
+write_csv(gi_tvar_joined_by_nhsno_brca_only,
           paste0(joined_folder, "data_for_publication.csv"))
 
 ```
+
+I have performed spot checks on the following samples to check that the results match those in DNA Database and iGene.
+
+24069071, 25023434, 25012444, 25045737, 24013968, 
+25003285, 24012711, 25029049, 25038927, 24040237,
+24014817, 25002153, 24056470, 25001726, 23060393
 
 # Conclusion
 
@@ -1547,4 +1657,4 @@ write_csv(data_for_publication,
 
 - Variant information for genes other than *BRCA1* and *BRCA2* has been removed from the final output.
 
-I have performed spot checks on the following samples to check that the results match those in DNA Database and iGene.
+- For samples with results on iGene, only samples with somatic variant testing performed on the M2_tBRCA_PS, M2_tBRCA_PS v2.a and M2_tBRCA_PS v2.b panels have been included.
