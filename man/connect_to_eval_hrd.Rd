@@ -9,7 +9,10 @@ connect_to_eval_hrd(
   schema = "GenExport",
   table = "Eval_HRD",
   col_vector = c("test_order_date", "test_name", "test_identifier", "referral_number",
-    "nhsn_umber", "test_name", "field", "data_value", "box")
+    "nhsn_umber", "test_name", "field", "data_value", "box"),
+  test_names = c("PANEL: M2.5 - SeqOne HRD Status",
+    "PANEL: R207.1 - Inherited ovarian cancer (without breast cancer) v4.0 (ICP)",
+    "PANEL: M2_tBRCA_PS", "PANEL: M2_tBRCA_PS v2.a", "PANEL: M2_tBRCA_PS v2.b")
 )
 }
 \arguments{
@@ -22,6 +25,9 @@ connect_to_eval_hrd(
 \item{col_vector}{Character vector of columns to select. This defaults to an
 order which seems to work. For some reason test_order_date should be
 selected first to avoid an "Invalid Descriptor Index" error}
+
+\item{test_names}{The names of analysis panels which are expected within this
+table}
 }
 \value{
 The Eval_HRD table as a dataframe
