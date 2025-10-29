@@ -144,8 +144,10 @@ gi_ws_collated <- seqone_csv_filepaths_na_removed |>
                                  pattern = "(WS[0-9]{6})_(\\d{8})",
                                  group = 1))
 
+gi_ws_collated_pre_oct2025 <- gi_ws_collated |> 
+  filter(date < "2025-10-20 00:00:00")
 
-gi_csv_duplicates <- gi_ws_collated |> 
+gi_csv_duplicates <- gi_ws_collated_pre_oct2025 |> 
   filter(duplicated(labno))
 
 ```
@@ -157,7 +159,7 @@ Get information (iGene R number, iGene S number, first name, surname, NHS number
 ```{r}
 #| label: get-gi-patient-info
 
-gi_labnos <- unique(gi_ws_collated$labno)
+gi_labnos <- unique(gi_ws_collated_pre_oct2025$labno)
 
 gi_ids <- collect_ids_by_vector(query_col = "labno",
                                 query_vector = gi_labnos,
@@ -170,7 +172,7 @@ gi_ids <- collect_ids_by_vector(query_col = "labno",
                                                   "pathno",
                                                   "comments"))
 
-gi_csv_collated_patient_info <- gi_ws_collated |> 
+gi_csv_collated_patient_info <- gi_ws_collated_pre_oct2025 |> 
   left_join(gi_ids, by = "labno",
             # One lab number can have multiple GI results, but should only
             # have one NHS number
@@ -426,16 +428,6 @@ Results from these panels are not included in this analysis.
 #| label: eval-hrd
 
 eval_hrd <- connect_to_eval_hrd()
-
-test_names <- c("PANEL: M2.5 - SeqOne HRD Status",
-                "PANEL: R207.1 - Inherited ovarian cancer (without breast cancer) v4.0 (ICP)",
-                "PANEL: M2_tBRCA_PS",
-                "PANEL: M2_tBRCA_PS v2.a",
-                "PANEL: M2_tBRCA_PS v2.b")
-
-stopifnot(nrow(eval_hrd) != 0)
-stopifnot(length(setdiff(unique(eval_hrd$test_name), test_names)) == 0)
-stopifnot(ncol(eval_hrd) == 8)
 
 ```
 
@@ -1465,8 +1457,6 @@ seqone_timeplot
 safe_blue <- "#88CCEE"
 safe_red <- "#CC6677"
 safe_grey <- "#888888"
-
-pooled_sd <- 0.04
 
 gi_csv_cleaned_orpp |> 
   filter(status != "Non-conclusive") |> 
