@@ -18,10 +18,11 @@ Imports:
   odbc,
   lubridate,
   tidyr
-VignetteBuilder: quarto
+VignetteBuilder: quarto, knitr
 Suggests: 
     rmarkdown,
     testthat (>= 3.0.0),
     quarto,
-    tibble
+    tibble,
+    knitr
 Config/testthat/edition: 3

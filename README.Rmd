@@ -18,7 +18,7 @@ knitr::opts_chunk$set(
 <!-- badges: start -->
 <!-- badges: end -->
 
-`kintsugi` is an R package to assist with auditing of data from genetic testing at the North West Genomic Laboratory Hub in Manchester. Genetic test information is split between two different databases (DNA Database and iGene) and is also saved in individual .xlsx and .csv files.
+`kintsugi` is an R package to assist with auditing of data from genetic testing at the North West Genomic Laboratory Hub (GLH) in Manchester. Genetic test information is split between two different databases (DNA Database and iGene) and is also saved in individual .xlsx and .csv files.
 
 `kintsugi` is a project to base genetic data audits around the concept of [Reproducible Analytical Pipelines (RAP)](https://analysisfunction.civilservice.gov.uk/support/reproducible-analytical-pipelines/).
 
@@ -30,6 +30,14 @@ You can install the development version of kintsugi from [GitHub](https://github
 # install.packages("pak")
 pak::pak("joe-m-shaw/kintsugi")
 ```
+
+`kintsugi` is intended for internal use only at the North West GLH. 
+In order to use `kintsugi`, your computer will need to have an odbc connection to the internal Microsoft SQL server.
+
+## Repository structure
+
+`kintsugi` follows the structure of a standard R package, but with an additional `analysis` folder which contains code for data requests. 
+Scripts in the `analysis` folder are ignored during package building.
 
 ## What does kintsugi mean?
 

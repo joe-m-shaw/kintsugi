@@ -1,0 +1,74 @@
+---
+title: "Introduction to kintsugi"
+author: "Joe Shaw"
+format: html
+editor: visual
+vignette: >
+  %\VignetteIndexEntry{introduction}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{quarto::html}
+---
+
+```{r}
+library(kintsugi)
+```
+
+At the North West GLH there are two databases used for managing genetic test information: DNA Database and iGene. DNA Database is sometimes referred to as "DLIMS" (DNA Laboratory Information Management System").
+
+`kintsugi` makes it easier to work with information in DNA Database and iGene at scale.
+
+`kintsugi` does not interact with the live version of either database. Instead, `kintsugi` allows you to connect to a Microsoft SQL Server which contains:
+
+-   A copy ("mirror") of the DNA Database which is updated every 24 hours
+
+-   Specific tables exported from iGene by the data team
+
+`kintsugi` relies on the `DBI` R package to connect with the Microsoft SQL Server via an odbc (open database connectivity) connection. The ["Database" chapter in "R for Data Science"](https://r4ds.hadley.nz/databases) gives an excellent overview of how DBI works.
+
+# Interacting with DNA Database
+
+## Collect by vector
+
+`kintsugi` allows you to query the DNA Database mirror at scale using the `collect_*_by_vector` series of functions.
+
+Here is an example of how to pull information for non-patient control samples using `collect_ids_by_vector`.
+
+```{r}
+#| include: TRUE
+
+control_ids <- c("24002060", "24002064", "24002067", "24002071")
+
+collect_ids_by_vector(query_col = "labno",
+                      query_vector = control_ids,
+                      output_cols = c("labno", 
+                                      "i_gene_r_no", 
+                                      "firstname", 
+                                      "surname"))
+
+```
+
+## Free-type descriptions
+
+Certain columns in DNA Database are free-type, which can make it difficult to extract information. `kintsugi` includes helper functions which contain various free-type options.
+
+For example, PanSolid next generation sequencing has been described in `r length(descriptions_pansolid())` different ways on DNA Database. Some examples are shown below.
+
+```{r}
+#| include: TRUE
+
+head(descriptions_pansolid(), n = 5)
+
+```
+
+The `descriptions_pansolid()` function makes it easy to pull out information relating to these worksheets, and can be combined with the `collect_worksheets_by_vector` function.
+
+```{r}
+#| include: TRUE
+
+pansolid_ws <- collect_worksheets_by_vector(query_col = "description",
+                             query_vector = descriptions_pansolid(),
+                             output_cols = c("pcrid", "description"))
+
+nrow(pansolid_ws)
+
+```
