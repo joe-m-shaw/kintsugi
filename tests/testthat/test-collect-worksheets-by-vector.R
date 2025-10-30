@@ -11,7 +11,8 @@ test_that("collect_worksheets_by_vector gives expected output for description fi
 test_that("collect_worksheets_by_vector returns warning with empty input", {
   
   expect_warning(collect_worksheets_by_vector(query_col = "description",
-                                     query_vector = c("")))
+                                     query_vector = c("")),
+                 regexp = "Output has 0 rows")
   
 })
 
@@ -29,7 +30,8 @@ test_that("collect_worksheets_by_vector gives error when query_col not in output
   
   expect_error(collect_worksheets_by_vector(query_col = "pcrid",
                                      query_vector = c(146462),
-                                     output_cols = c("description")))
+                                     output_cols = c("description")),
+               regexp = "Query column .* is not in output columns" )
 })
 
 test_that("collect_worksheets_by_vector works with descriptions function", {

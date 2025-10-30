@@ -2,7 +2,7 @@
 % Please edit documentation in R/check-output.R
 \name{check_output}
 \alias{check_output}
-\title{Check outpu of collect_*_by_vector functions}
+\title{Check output of collect_*_by_vector functions}
 \usage{
 check_output(output)
 }
@@ -13,7 +13,7 @@ check_output(output)
 Errors and warnings if output dataframe is not correct format
 }
 \description{
-Check outpu of collect_*_by_vector functions
+Check output of collect_*_by_vector functions
 }
 \examples{
 collect_results_by_vector(query_col = "labno", query_vector = c(""))

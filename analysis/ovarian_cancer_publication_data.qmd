@@ -37,8 +37,7 @@ Dr Morgan would like the data meeting the following criteria:
 -   Data generated between December 2023 to October 2025
 -   Data from somatic variant testing for genetic variants in *BRCA1* and *BRCA2*
 
-Dr Morgan originally also requested data on germline testing for *BRCA1* and *BRCA2*. 
-Germline testing data is now no longer required for this publication, but the code for collating germline data has been left to allow easier collation for the next publication.
+Dr Morgan originally also requested data on germline testing for *BRCA1* and *BRCA2*. Germline testing data is now no longer required for this publication, but the code for collating germline data has been left to allow easier collation for the next publication.
 
 # Methods
 
@@ -46,22 +45,22 @@ Preparing this data requires multiple steps and uses the `kintsugi` package. For
 
 Here is an overview of the approach I have taken:
 
-- Collate all GI data from individual csv files saved on the S drive
-- Remove samples tested for validation purposes and external quality assessment
-- Remove data from repeated samples
-- Identify somatic and germline tests results for these patients on both DNA Database and iGene.
-- Clean the somatic and germline test data from DNA Database and iGene so that they can be joined together as single tables: all somatic test results in one table, all germline test results in another table.
-- Join the datasets together to create the final table to send to Dr Morgan.
+-   Collate all GI data from individual csv files saved on the S drive
+-   Remove samples tested for validation purposes and external quality assessment
+-   Remove data from repeated samples
+-   Identify somatic and germline tests results for these patients on both DNA Database and iGene.
+-   Clean the somatic and germline test data from DNA Database and iGene so that they can be joined together as single tables: all somatic test results in one table, all germline test results in another table.
+-   Join the datasets together to create the final table to send to Dr Morgan.
 
 ## Naming convention
 
 I have used the following naming convention for ovarian cancer testing terms:
 
-- gi: Genomic Instability
+-   gi: Genomic Instability
 
-- glvar: Germline variants
+-   glvar: Germline variants
 
-- tvar: Tumour variants
+-   tvar: Tumour variants
 
 This is exlained in more detail in the `names.qmd` vignette in the `kintsugi` package.
 
@@ -232,11 +231,9 @@ non_patient_samples <- gi_csv_collated_validation_info |>
 
 ```
 
-There are `r nrow(patients_without_nhsno)` samples from patients which do not have an NHS number.
-These are removed from the dataset because it is not possible to link them to other test results.
+There are `r nrow(patients_without_nhsno)` samples from patients which do not have an NHS number. These are removed from the dataset because it is not possible to link them to other test results.
 
-There are `r nrow(non_patient_samples)` samples from EQA schemes or synthetic controls.
-These are also removed from the dataset.
+There are `r nrow(non_patient_samples)` samples from EQA schemes or synthetic controls. These are also removed from the dataset.
 
 Filter results to only include patient samples tested on the live service, and filter results to one result per patient. Some patient have multiple samples. To select samples with conclusive results (positive or negative GI statuses), arrange by NHS number and status and then remove NHS number duplicates.
 
@@ -417,12 +414,11 @@ iGene data can be accessed on the SQL Server using the "Eval_HRD" table which ha
 
 This table includes data from the following somatic variant panels:
 
-- M2_tBRCA_PS
-- M2_tBRCA_PS v2.a
-- M2_tBRCA_PS v2.b
+-   M2_tBRCA_PS
+-   M2_tBRCA_PS v2.a
+-   M2_tBRCA_PS v2.b
 
-There are some panels which a minority of patients receive, such as "OvarianEXT_PS v2.b" and "M119_PAEDEXT_PS".
-Results from these panels are not included in this analysis.
+There are some panels which a minority of patients receive, such as "OvarianEXT_PS v2.b" and "M119_PAEDEXT_PS". Results from these panels are not included in this analysis.
 
 ```{r}
 #| label: eval-hrd
@@ -525,12 +521,11 @@ There are important differences between variant data in DNA Database and in iGen
 
 2.  iGene includes a "headline result" column which includes what result was reported, whilst DNA Database does not.
 
-3. DNA Database has a single free-type "genotype" column which holds multiple different pieces of data, whilst iGene splits this information into different columns.
+3.  DNA Database has a single free-type "genotype" column which holds multiple different pieces of data, whilst iGene splits this information into different columns.
 
 ### Germline BRCA testing
 
-Annotate variant classifications to DNA Database germline results.
-To do this I had to manually check each DNA Database report to check what the classification of each variant was.
+Annotate variant classifications to DNA Database germline results. To do this I had to manually check each DNA Database report to check what the classification of each variant was.
 
 This step is complicated as the "genotype" column contains information about multiple variants, including single nucleotide variants (SNVs) and copy number variants (CNVs).
 
@@ -646,9 +641,7 @@ stopifnot(anyNA(samples_with_tumour_variants$tvar_seqv1_description) == FALSE)
 
 ```
 
-This splits the "genotype" column into separate columns.
-One sample has a pathogenic *BRAF* and a pathogenic *TP53* variant in the genotype column.
-As neither as *BRCA* variants I have not created a separate column for the second variant.
+This splits the "genotype" column into separate columns. One sample has a pathogenic *BRAF* and a pathogenic *TP53* variant in the genotype column. As neither as *BRCA* variants I have not created a separate column for the second variant.
 
 ```{r}
 #| label: tvar-dnadb-genotype-column-splitting
@@ -1027,13 +1020,13 @@ write_csv(tvar_dnadb_igene_bound_orpp,
 
 ## Join data from iGene, DNA Database and csv files
 
-Now the datasets can be joined together for analysis. There are different ways in which the data can be joined: 
+Now the datasets can be joined together for analysis. There are different ways in which the data can be joined:
 
-- At the patient level (by NHS number) 
+-   At the patient level (by NHS number)
 
-- At the referral level (by iGene R number) 
+-   At the referral level (by iGene R number)
 
-- At the sample level (by DNA lab number)
+-   At the sample level (by DNA lab number)
 
 Join GI and glvar by NHS number.
 
@@ -1477,8 +1470,7 @@ gi_csv_cleaned_orpp |>
 
 ## Export results in requested format
 
-Restrict the dataset to results between 1st December 2023 and 20th October 2025.
-The date used for this step is the date of the SeqOne genomic instability analysis.
+Restrict the dataset to results between 1st December 2023 and 20th October 2025. The date used for this step is the date of the SeqOne genomic instability analysis.
 
 ```{r}
 #| label: restrict-date-range
@@ -1627,24 +1619,20 @@ write_csv(gi_tvar_joined_by_nhsno_brca_only,
 
 I have performed spot checks on the following samples to check that the results match those in DNA Database and iGene.
 
-24069071, 25023434, 25012444, 25045737, 24013968, 
-25003285, 24012711, 25029049, 25038927, 24040237,
-24014817, 25002153, 24056470, 25001726, 23060393
+24069071, 25023434, 25012444, 25045737, 24013968, 25003285, 24012711, 25029049, 25038927, 24040237, 24014817, 25002153, 24056470, 25001726, 23060393
 
 # Conclusion
 
 `r nrow(data_for_publication)` results have been identified which meet the data request criteria.
 
-- This data is for patients only. EQA samples and control samples are excluded.
+-   This data is for patients only. EQA samples and control samples are excluded.
 
-- There is only one result per patient. Patients with multiple results have the conclusive results selected over inconclusive results.
+-   There is only one result per patient. Patients with multiple results have the conclusive results selected over inconclusive results.
 
-- Patients without NHS numbers have been excluded.
+-   Patients without NHS numbers have been excluded.
 
-- The data was collected between 
-`r format.Date(x = min(data_for_publication$date), format = "%d %B %Y")` and
-`r format.Date(x = max(data_for_publication$date), format = "%d %B %Y")`.
+-   The data was collected between `r format.Date(x = min(data_for_publication$date), format = "%d %B %Y")` and `r format.Date(x = max(data_for_publication$date), format = "%d %B %Y")`.
 
-- Variant information for genes other than *BRCA1* and *BRCA2* has been removed from the final output.
+-   Variant information for genes other than *BRCA1* and *BRCA2* has been removed from the final output.
 
-- For samples with results on iGene, only samples with somatic variant testing performed on the M2_tBRCA_PS, M2_tBRCA_PS v2.a and M2_tBRCA_PS v2.b panels have been included.
+-   For samples with results on iGene, only samples with somatic variant testing performed on the M2_tBRCA_PS, M2_tBRCA_PS v2.a and M2_tBRCA_PS v2.b panels have been included.

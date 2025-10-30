@@ -1,6 +1,6 @@
 check_output <- function(output) {
   
-  #' Check outpu of collect_*_by_vector functions
+  #' Check output of collect_*_by_vector functions
   #'
   #' @param output The dataframe returned by the collect_*_by_vector function
   #'
