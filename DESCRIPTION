@@ -17,7 +17,9 @@ Imports:
   DBI,
   odbc,
   lubridate,
-  tidyr
+  tidyr,
+  stringr,
+  purrr
 VignetteBuilder: quarto, knitr
 Suggests: 
     rmarkdown,

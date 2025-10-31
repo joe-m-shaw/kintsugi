@@ -62,7 +62,7 @@ I have used the following naming convention for ovarian cancer testing terms:
 
 -   tvar: Tumour variants
 
-This is exlained in more detail in the `names.qmd` vignette in the `kintsugi` package.
+This is explained in more detail in the `naming_convention.qmd` vignette in the `kintsugi` package.
 
 ## Collate data from SeqOne csv files
 
@@ -88,65 +88,24 @@ Identify worksheet numbers and file locations for all SeqOne GI testing at the N
 ```{r}
 #| label: find-seqone-files
 
-gi_ws_info <- collect_worksheets_by_vector(query_col = "description",
-                             query_vector = descriptions_seqone_gi())
-
-gi_ws_list <- list(gi_ws_info$worksheet)
-
-gi_ws_filepaths <- gi_ws_list |> 
-  map(\(gi_ws_list) list_worksheet_filepaths(worksheet = gi_ws_list,
-                                      pattern = "hrd-results.*csv")) |> 
-  flatten()
+gi_ws_filepaths <- list_seqone_gi_csv()[[1]]
 
 ```
 
 `r length(gi_ws_filepaths)` GI csv files have been identified.
-
-Copy files to review folder.
-
-```{r}
-#| label: copy-files
-#| include: FALSE
-#| message: FALSE
-
-file.copy(from = gi_ws_filepaths,
-          to = seqone_gi_csv_folder)
-
-```
 
 Collate GI results by reading the first line of each .csv file. Two files are excluded from this process as they were from a failed pipeline run and have NA values for several variables. These samples were successfully re-analysed.
 
 ```{r}
 #| label: collate-seqone-data
 
-seqone_csv_filepaths <- list.files(path = seqone_gi_csv_folder,
-                                   full.names = TRUE,
-                                   recursive = FALSE,
-                                   pattern = "hrd-results.*csv"
-                                   )
+gi_csv_bind <- bind_seqone_gi_csv(filepaths = gi_ws_filepaths,
+                   folder = seqone_gi_csv_folder)
 
-seqone_files_with_nas <- c("WS144728_24045060 hrd-results.csv",
-                           "WS144728_24044787 hrd-results.csv")
-
-seqone_csv_filepaths_na_removed <- seqone_csv_filepaths[-grep(
-  paste(seqone_files_with_nas, collapse = "|"), 
-  seqone_csv_filepaths)]
-
-stopifnot(length(seqone_csv_filepaths_na_removed) == length(seqone_csv_filepaths)-2)
-
-gi_ws_collated <- seqone_csv_filepaths_na_removed |> 
-  map(\(seqone_csv_filepaths_na_removed) read_seqone_gi_csv(seqone_csv_filepaths_na_removed)) |> 
-  list_rbind() |> 
-  mutate(labno = str_extract(string = sample,
-                             pattern = "\\d{8}"),
-         worksheet = str_extract(string = sample,
-                                 pattern = "(WS[0-9]{6})_(\\d{8})",
-                                 group = 1))
-
-gi_ws_collated_pre_oct2025 <- gi_ws_collated |> 
+gi_csv_bind_pre_oct2025 <- gi_csv_bind |> 
   filter(date < "2025-10-20 00:00:00")
 
-gi_csv_duplicates <- gi_ws_collated_pre_oct2025 |> 
+gi_csv_duplicates <- gi_csv_bind_pre_oct2025 |> 
   filter(duplicated(labno))
 
 ```
@@ -158,7 +117,7 @@ Get information (iGene R number, iGene S number, first name, surname, NHS number
 ```{r}
 #| label: get-gi-patient-info
 
-gi_labnos <- unique(gi_ws_collated_pre_oct2025$labno)
+gi_labnos <- unique(gi_csv_bind_pre_oct2025$labno)
 
 gi_ids <- collect_ids_by_vector(query_col = "labno",
                                 query_vector = gi_labnos,
@@ -171,7 +130,7 @@ gi_ids <- collect_ids_by_vector(query_col = "labno",
                                                   "pathno",
                                                   "comments"))
 
-gi_csv_collated_patient_info <- gi_ws_collated_pre_oct2025 |> 
+gi_csv_collated_patient_info <- gi_csv_bind_pre_oct2025 |> 
   left_join(gi_ids, by = "labno",
             # One lab number can have multiple GI results, but should only
             # have one NHS number
