@@ -29,7 +29,7 @@ This is a data review for the ovarian cancer testing service which will provide 
 
 Dr Morgan would like the data meeting the following criteria:
 
--   Data from genomic instability (GI) testing performed at the Manchester lab using the SeqOne SomaHRD pipeline
+-   Data from genomic instability (GI) testing performed at the North West Genomic Laboratory Hub (GLH) using the SeqOne SomaHRD pipeline
 -   Ovarian cancer samples only
 -   Patients only (no external quality assessment samples or controls)
 -   One GI result per patient
@@ -41,11 +41,12 @@ Dr Morgan originally also requested data on germline testing for *BRCA1* and *BR
 
 # Methods
 
-Preparing this data requires multiple steps and uses the `kintsugi` package. For each step I have included explanatory text alongside the R code.
+Preparing this data requires multiple steps and uses the `kintsugi` package. 
+For each step I have included explanatory text alongside the R code.
 
 Here is an overview of the approach I have taken:
 
--   Collate all GI data from individual csv files saved on the S drive
+-   Collate all GI data from individual csv (comma separated value) files saved on the internal S drive at the North West GLH
 -   Remove samples tested for validation purposes and external quality assessment
 -   Remove data from repeated samples
 -   Identify somatic and germline tests results for these patients on both DNA Database and iGene.
@@ -83,7 +84,7 @@ seqone_gi_csv_folder <- paste0(initial_folder, "seqone_gi_csvs/")
 
 ```
 
-Identify worksheet numbers and file locations for all SeqOne GI testing at the North West GLH. Results are exported from the SeqOne website as .csv files and saved in folders named after the worksheet identifier.
+Identify worksheet numbers and file locations for all SeqOne GI testing at the North West GLH. Results are exported from the SeqOne website as csv files and saved in folders named after the worksheet identifier.
 
 ```{r}
 #| label: find-seqone-files
@@ -94,7 +95,11 @@ gi_ws_filepaths <- list_seqone_gi_csv()[[1]]
 
 `r length(gi_ws_filepaths)` GI csv files have been identified.
 
-Collate GI results by reading the first line of each .csv file. Two files are excluded from this process as they were from a failed pipeline run and have NA values for several variables. These samples were successfully re-analysed.
+Collate GI results by reading the first line of each csv file. 
+Two files are excluded from this process (WS144728_24045060 and WS144728_24044787) as they were from a failed pipeline run and have NA values for several variables. 
+These samples were successfully re-analysed.
+
+The data is restricted to data collected before 2025-10-20.
 
 ```{r}
 #| label: collate-seqone-data
@@ -194,7 +199,9 @@ There are `r nrow(patients_without_nhsno)` samples from patients which do not ha
 
 There are `r nrow(non_patient_samples)` samples from EQA schemes or synthetic controls. These are also removed from the dataset.
 
-Filter results to only include patient samples tested on the live service, and filter results to one result per patient. Some patient have multiple samples. To select samples with conclusive results (positive or negative GI statuses), arrange by NHS number and status and then remove NHS number duplicates.
+Filter results to only include patient samples tested on the live service, and filter results to one result per patient. 
+
+To select samples with conclusive results (positive or negative GI statuses), arrange by NHS number and status and then remove NHS number duplicates.
 
 ```{r}
 #| label: filter-one-result-per-patient
@@ -351,7 +358,7 @@ stopifnot(anyNA.data.frame(tvar_dnadb_extracted) == FALSE)
 
 ```
 
-Now do the same thing for tumour *BRCA* results. There are `r length(unique(descriptions_pansolid()))` different ways that tumour *BRCA* testing has been described, and `r nrow(tvar_dnadb_extracted)` results have been found on DNA Database, ranging from `r format.Date(x = min(tvar_dnadb_extracted$genodate), format = "%d %B %Y")` to `r format.Date(x = max(tvar_dnadb_extracted$genodate), format = "%d %B %Y")`.
+Find results for tumour *BRCA* testing on the PanSolid next generation sequencing panel. There are `r length(unique(descriptions_pansolid()))` different ways that tumour *BRCA* testing has been described, and `r nrow(tvar_dnadb_extracted)` results have been found on DNA Database, ranging from `r format.Date(x = min(tvar_dnadb_extracted$genodate), format = "%d %B %Y")` to `r format.Date(x = max(tvar_dnadb_extracted$genodate), format = "%d %B %Y")`.
 
 ```{r}
 #| label: export-dnadb-glvar-tvar-data
@@ -449,9 +456,9 @@ tvar_igene_no_na <- tvar_igene |>
 
 `r nrow(tvar_igene_na)` tumour entries with no headline result were removed.
 
-iGene germline variant data on iGene ranges from `r format.Date(x = min(glvar_igene_no_na$test_order_date), format = "%d %B %Y")` to `r format.Date(x = max(glvar_igene_no_na$test_order_date), format = "%d %B %Y")`.
+iGene germline variant data ranges from `r format.Date(x = min(glvar_igene_no_na$test_order_date), format = "%d %B %Y")` to `r format.Date(x = max(glvar_igene_no_na$test_order_date), format = "%d %B %Y")`.
 
-iGene tumour variant data on iGene ranges from `r format.Date(x = min(tvar_igene_no_na$test_order_date), format = "%d %B %Y")` to `r format.Date(x = max(tvar_igene_no_na$test_order_date), format = "%d %B %Y")`.
+iGene tumour variant data ranges from `r format.Date(x = min(tvar_igene_no_na$test_order_date), format = "%d %B %Y")` to `r format.Date(x = max(tvar_igene_no_na$test_order_date), format = "%d %B %Y")`.
 
 Export the data.
 
@@ -481,6 +488,8 @@ There are important differences between variant data in DNA Database and in iGen
 2.  iGene includes a "headline result" column which includes what result was reported, whilst DNA Database does not.
 
 3.  DNA Database has a single free-type "genotype" column which holds multiple different pieces of data, whilst iGene splits this information into different columns.
+
+4. The "genotype" column of DNA Database was sometimes used to record variants which were not included on the final report.
 
 ### Germline BRCA testing
 
@@ -667,7 +676,7 @@ dnadb_nhsno <- c(unique(tvar_dnadb_cleaned$nhsno),
 
 ```
 
-There are `r length(intersect(igene_nhsno, dnadb_nhsno))` patients with results on DNA Database and iGene.
+There are `r length(intersect(igene_nhsno, dnadb_nhsno))` patients with results on both DNA Database and iGene.
 
 In order to join the DNA Database and iGene data, they must have the same column names.
 
@@ -987,7 +996,7 @@ Now the datasets can be joined together for analysis. There are different ways i
 
 -   At the sample level (by DNA lab number)
 
-Join GI and glvar by NHS number.
+Join GI and germline variant data by NHS number.
 
 ```{r}
 #| label: join-gi-glvar-nhsno
@@ -1041,7 +1050,7 @@ gi_tvar_joined_by_pathno <- gi_csv_cleaned_orpp_for_join |>
 
 ```
 
-Join tvar and glvar data by NHS number.
+Join tumour variant and germline variant data by NHS number.
 
 ```{r}
 #| label: join-tvar-glvar
@@ -1084,10 +1093,14 @@ write_csv(glvar_tvar_joined,
 
 ## Figures and Tables
 
+I have included summary tables and figures for the final dataset. 
+Several plots relate to germline testing so I have set the code not to evaluate.
+These figures can be rendered in the next phase of the project.
+
 ```{r}
 #| label: tbl-gi-results
 #| echo: TRUE
-#| tbl-cap: "All SeqOne GI results"
+#| tbl-cap: "All SeqOne GI results (one result per patient)"
 
 tbl_gi_orps <- gi_csv_cleaned_orps |> 
   group_by(status) |> 
@@ -1108,24 +1121,8 @@ knitr::kable(tbl_gi_orpp |>
 ```
 
 ```{r}
-#| label: tbl-gi-glvar-all-results
-#| tbl-cap: "Patients with GI and germline variant results"
-#| include: FALSE
-
-glvar_all_results <- gi_glvar_joined |> 
-  group_by(data_source) |> 
-  count() |> 
-  rename("Joined by NHS number" = n,
-         "NGS result data source" = data_source) |> 
-  adorn_totals()
-
-knitr::kable(glvar_all_results)
-
-```
-
-```{r}
 #| label: tbl-gi-tvar-all-results
-#| tbl-cap: "Patients with GI and tumour variant results"
+#| tbl-cap: "Patients with GI and tumour variant results on selected PanSolid panels"
 #| echo: TRUE
 
 tvar_labno_all_results <- gi_tvar_joined_by_labno |> 
@@ -1153,6 +1150,36 @@ knitr::kable(tvar_all_results)
 
 ```
 
+There are `r nrow(gi_tvar_joined_by_nhsno) - nrow(gi_tvar_joined_by_rno)` cases where samples are joined by NHS number but have different iGene referral numbers.
+
+```{r}
+#| label: igene-additional-rnos
+
+setdiff(gi_tvar_joined_by_nhsno$rno.x,
+        gi_tvar_joined_by_rno$rno)
+
+```
+
+I have checked some of these cases, and they are from situations where either PanSolid NGS testing or SeqOne GI testing failed on the initial sample referral. 
+Another sample was then sent (with a different iGene R number) which then had a conclusive result.
+
+I have also generated tables and figures which are not rendered in this final output for brevity, but have included the code for future reference.
+
+```{r}
+#| label: gi-glvar-all-results-tbl
+#| eval: FALSE
+
+glvar_all_results <- gi_glvar_joined |> 
+  group_by(data_source) |> 
+  count() |> 
+  rename("Joined by NHS number" = n,
+         "NGS result data source" = data_source) |> 
+  adorn_totals()
+
+knitr::kable(glvar_all_results)
+
+```
+
 ```{r}
 #| label: conclusive-results
 
@@ -1169,9 +1196,8 @@ gi_tvar_joined_conclusive <- gi_tvar_joined_by_labno |>
 ```
 
 ```{r}
-#| label: tbl-gi-glvar
-#| include: FALSE
-#| tbl-cap: "GI results and germline testing results"
+#| label: gi-glvar-tbl
+#| eval: FALSE
 
 tbl_gi_glvar <- gi_glvar_joined |>
   group_by(status, glvar_headline_result) |> 
@@ -1186,9 +1212,8 @@ knitr::kable(tbl_gi_glvar)
 ```
 
 ```{r}
-#| label: tbl-gi-tvar
-#| tbl-cap: "GI results and tumour testing results (joined by DNA number)"
-#| include: FALSE
+#| label: gi-tvar-tbl
+#| eval: FALSE
 
 tbl_gi_tvar <- gi_tvar_joined_by_labno |> 
   group_by(status, tvar_headline_result) |> 
@@ -1204,7 +1229,7 @@ knitr::kable(tbl_gi_tvar)
 
 ```{r}
 #| label: fig-gi-gl-results-variants
-#| include: FALSE
+#| eval: FALSE
 #| fig-cap: "GI results for patients with reportable germline variants"
 
 variant_class_colours <- c("#FF3300",
@@ -1231,7 +1256,7 @@ gi_glvar_plot
 
 ```{r}
 #| label: fig-gi-tvar-results-variants
-#| include: FALSE
+#| eval: FALSE
 #| fig-cap: "GI results for patients with somatic BRCA1/2 variants"
 
 gi_tvar_plot <- gi_tvar_joined_conclusive |> 
@@ -1257,7 +1282,7 @@ gi_tvar_plot
 
 ```{r}
 #| label: gi-neg-gl-pos
-#| include: FALSE
+#| eval: FALSE
 
 glvar_neg_gi <- gi_glvar_joined |> 
   filter(glvar_headline_result == "Reportable variant(s) detected") |> 
@@ -1268,9 +1293,8 @@ glvar_neg_gi <- gi_glvar_joined |>
 ```
 
 ```{r}
-#| label: tbl-gi-neg-gl-pos
-#| tbl-cap: "GI negative samples with germline variants"
-#| include: FALSE
+#| label: gi-neg-gl-pos-tbl
+#| eval: FALSE
 
 knitr::kable(glvar_neg_gi |> 
                select(rno.x, gi_labno, score, 
@@ -1281,9 +1305,8 @@ knitr::kable(glvar_neg_gi |>
 ```
 
 ```{r}
-#| label: tbl-tvar-neg-gi
-#| include: FALSE
-#| tbl-cap: "GI negative samples with tumour BRCA variants"
+#| label: tvar-neg-gi-tbl
+#| eval: FALSE
 
 tvar_neg_gi <- gi_tvar_joined_conclusive |> 
   filter(tvar_headline_result == "Reportable variant(s) detected") |>
@@ -1298,7 +1321,7 @@ knitr::kable(tvar_neg_gi)
 
 ```{r}
 #| label: glvar-vs-tvar
-#| include: FALSE
+#| eval: FALSE
 
 glvar_tvar_brca <- glvar_tvar_joined |> 
   filter(!is.na(gl_gene) &
@@ -1314,7 +1337,7 @@ glvar_tvar_brca <- glvar_tvar_joined |>
 
 ```{r}
 #| label: fig-gi-glvar-histogram
-#| include: FALSE
+#| eval: FALSE
 #| fig-cap: "GI score histogram stratified by germline BRCA status"
 
 gi_glvar_histogram <- gi_glvar_joined_conclusive |> 
@@ -1377,7 +1400,7 @@ gi_tvar_percent_plot
 
 ```{r}
 #| label: patients-over-time
-#| include: FALSE
+#| eval: FALSE
 #| fig-cap: "Patients tested on SeqOne service"
 
 gi_data_sum <- gi_csv_cleaned_orpp |> 
@@ -1404,7 +1427,7 @@ seqone_timeplot
 
 ```{r}
 #| label: gi-score-histogram
-#| include: FALSE
+#| eval: FALSE
 
 safe_blue <- "#88CCEE"
 safe_red <- "#CC6677"
@@ -1429,24 +1452,45 @@ gi_csv_cleaned_orpp |>
 
 ## Export results in requested format
 
-Restrict the dataset to results between 1st December 2023 and 20th October 2025. The date used for this step is the date of the SeqOne genomic instability analysis.
+Check that dataset only includes results between 1st December 2023 and 20th October 2025.
 
 ```{r}
-#| label: restrict-date-range
+#| label: check-date-range
 
-gi_tvar_joined_by_nhsno_date_restricted <- gi_tvar_joined_by_nhsno |> 
-  filter(date > "2023-12-01 00:00:00" &
-           date < "2025-10-20 00:00:00") |> 
-  rename(tvar_data_source = data_source)
+stopifnot(max(gi_tvar_joined_by_nhsno$date) < "2025-10-20 00:00:00")
+
+stopifnot(min(gi_tvar_joined_by_nhsno$date) > "2023-12-01 00:00:00")
 
 # Check for duplicates
-stopifnot(anyDuplicated(gi_tvar_joined_by_nhsno_date_restricted$nhsno) == 0)
+stopifnot(anyDuplicated(gi_tvar_joined_by_nhsno$nhsno) == 0)
 
 # Check for EQA samples
 stopifnot(length(grep(pattern = "EQA|Sera", 
-                      x = gi_tvar_joined_by_nhsno_date_restricted$full_name,
+                      x = gi_tvar_joined_by_nhsno$full_name,
                       ignore.case = TRUE,
                       value = TRUE)) == 0)
+
+```
+
+Add columns to match Rob Morgan's spreadsheet.
+
+```{r}
+#| label: add-columns
+
+gi_tvar_joined_by_nhsno_add_columns <- gi_tvar_joined_by_nhsno |> 
+  rename(tvar_data_source = data_source) |> 
+  arrange(gi_labno) |> 
+  mutate(centre = "NWGLH",
+         number = row_number(),
+         dataset_sent_to_rm = 3,
+         sample_received_in_lab = "",
+         test_reported = "",
+         tat = "",
+         patient_age = "",
+         histology = "",
+         tcc = "",
+         gbrca1_2 = "",
+         tbrca_tested_by = "Yes")
 
 ```
 
@@ -1455,13 +1499,25 @@ Select required columns.
 ```{r}
 #| label: select-columns
 
-gi_tvar_joined_by_nhsno_select <- gi_tvar_joined_by_nhsno_date_restricted |> 
+gi_tvar_joined_by_nhsno_select <- gi_tvar_joined_by_nhsno_add_columns |> 
   select(
     gi_labno,
-    rno.x,
     full_name,
+    rno.x, 
+    nhsno, 
     date,
     tvar_data_source,
+    dataset_sent_to_rm, 
+    number,
+    centre,
+    sample_received_in_lab,
+    test_reported,
+    tat,
+    patient_age,
+    histology,
+    tcc,
+    gbrca1_2,
+    tbrca_tested_by,
     tvar_headline_result,
     tvar_gene1,
     tvar_seqv1_description,
@@ -1564,15 +1620,29 @@ stopifnot(nrow(gi_tvar_joined_by_nhsno_brca_only |>
 
 ```
 
+Remove patient identifiers, but also keep a backup data copy including patient identifiers in case this is required in future.
+Only the dataset **without** patient identifiers will be sent to Dr Morgan.
+
+```{r}
+#| label: remove-identifiers
+
+final_dataset_patient_ids <- gi_tvar_joined_by_nhsno_brca_only
+
+final_dataset_patient_ids_removed <- final_dataset_patient_ids |> 
+  select(-c(gi_labno, full_name, rno.x, nhsno,  date, tvar_data_source))
+
+```
+
 Export the final dataset.
 
 ```{r}
 #| label: export-final-dataset
 
-data_for_publication <- gi_tvar_joined_by_nhsno_brca_only
+write_csv(final_dataset_patient_ids,
+          paste0(joined_folder, "final_dataset_patient_ids.csv"))
 
-write_csv(gi_tvar_joined_by_nhsno_brca_only,
-          paste0(joined_folder, "data_for_publication.csv"))
+write_csv(final_dataset_patient_ids_removed,
+          paste0(joined_folder, "final_dataset_patient_ids_removed.csv"))
 
 ```
 
@@ -1582,7 +1652,7 @@ I have performed spot checks on the following samples to check that the results 
 
 # Conclusion
 
-`r nrow(data_for_publication)` results have been identified which meet the data request criteria.
+`r nrow(final_dataset_patient_ids_removed)` results have been identified which meet the data request criteria.
 
 -   This data is for patients only. EQA samples and control samples are excluded.
 
@@ -1590,7 +1660,7 @@ I have performed spot checks on the following samples to check that the results 
 
 -   Patients without NHS numbers have been excluded.
 
--   The data was collected between `r format.Date(x = min(data_for_publication$date), format = "%d %B %Y")` and `r format.Date(x = max(data_for_publication$date), format = "%d %B %Y")`.
+-   The data was collected between `r format.Date(x = min(final_dataset_patient_ids$date), format = "%d %B %Y")` and `r format.Date(x = max(final_dataset_patient_ids$date), format = "%d %B %Y")`.
 
 -   Variant information for genes other than *BRCA1* and *BRCA2* has been removed from the final output.
 
