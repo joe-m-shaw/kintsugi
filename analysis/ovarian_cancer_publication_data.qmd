@@ -101,13 +101,35 @@ These samples were successfully re-analysed.
 
 The data is restricted to data collected before 2025-10-20.
 
+Different rows in numeric columns (coverage, pct_mapped_reads, score, ccne1_cn and rad51b_cn) have different numbers of decimal places.
+
+```{r}
+#| label: decimal-places
+
+decimal_places <- 3
+
+```
+
+Harmonise these to consistently have `r decimal_places` decimal places each.
+
 ```{r}
 #| label: collate-seqone-data
 
 gi_csv_bind <- bind_seqone_gi_csv(filepaths = gi_ws_filepaths,
                    folder = seqone_gi_csv_folder)
 
-gi_csv_bind_pre_oct2025 <- gi_csv_bind |> 
+gi_csv_bind_correct_decimals <- gi_csv_bind |> 
+  mutate(coverage = round(coverage, digits = decimal_places),
+         pct_mapped_reads = round(pct_mapped_reads, digits = decimal_places),
+         score = round(score, digits = decimal_places),
+         ccne1_cn = round(ccne1_cn, digits = decimal_places),
+         rad51b_cn = round(rad51b_cn, digits = decimal_places))
+
+stopifnot(anyNA.data.frame(gi_csv_bind_correct_decimals |> 
+                   select(coverage, pct_mapped_reads,
+                          score, ccne1_cn, rad51b_cn)) == FALSE)
+
+gi_csv_bind_pre_oct2025 <- gi_csv_bind_correct_decimals |> 
   filter(date < "2025-10-20 00:00:00")
 
 gi_csv_duplicates <- gi_csv_bind_pre_oct2025 |> 
@@ -117,7 +139,9 @@ gi_csv_duplicates <- gi_csv_bind_pre_oct2025 |>
 
 There are `r nrow(gi_csv_duplicates)` samples with more than one SeqOne GI csv result.
 
-Get information (iGene R number, iGene S number, first name, surname, NHS number and pathology block identifier) from DNA Database for each DNA laboratory number.
+Get information (iGene R number, iGene S number, first name, surname, NHS number, pathology block identifier and date of birth) from DNA Database for each DNA laboratory number.
+
+This includes calculating the age at SeqOne GI testing for each patient.
 
 ```{r}
 #| label: get-gi-patient-info
@@ -133,21 +157,49 @@ gi_ids <- collect_ids_by_vector(query_col = "labno",
                                                   "surname", 
                                                   "nhsno", 
                                                   "pathno",
-                                                  "comments"))
+                                                  "dob",
+                                                  "comments")) |> 
+  mutate(dob = as.Date(dob))
 
 gi_csv_collated_patient_info <- gi_csv_bind_pre_oct2025 |> 
   left_join(gi_ids, by = "labno",
             # One lab number can have multiple GI results, but should only
             # have one NHS number
             relationship = "many-to-one") |> 
+  mutate(age_at_testing = floor(x = interval(dob, date) / years())) |> 
   relocate(labno, i_gene_r_no, i_gene_s_no,
-           surname, firstname, nhsno, pathno, comments) |> 
+           surname, firstname, nhsno, dob, date, 
+           age_at_testing, pathno, comments) |> 
   rename(rno = i_gene_r_no,
          sno = i_gene_s_no)
 
 stopifnot(anyNA(gi_csv_collated_patient_info$firstname) == FALSE)
 
 ```
+
+Check that the age calculation is correct.
+
+```{r}
+#| label: check-age-calculation
+
+samples_with_dobs <- gi_csv_collated_patient_info |> 
+  filter(!is.na(dob))
+
+stopifnot(max(samples_with_dobs$age_at_testing) < 100)
+stopifnot(min(samples_with_dobs$age_at_testing) > 25)
+
+ggplot(samples_with_dobs, aes(x = age_at_testing, y = )) +
+  geom_histogram(binwidth = 1) +
+  theme_bw() +
+  labs(x = "Age at SeqOne GI testing (years)",
+       y = "Number of patients")
+
+```
+
+The ages of patients in this cohort ranges from
+`r min(samples_with_dobs$age_at_testing)` to
+`r max(samples_with_dobs$age_at_testing)`
+(median `r median(samples_with_dobs$age_at_testing)`).
 
 Annotate the collated data to identify samples which are not from patients (GenQA and SeraCare control samples) and samples which were run for validation purposes.
 
@@ -217,6 +269,10 @@ if(length(grep(pattern = "[[:digit:]]",
                gi_csv_cleaned_orpp$full_name)) != 0){
   stop("Some patient names contain numbers")
 }
+
+stopifnot(anyNA(x = gi_csv_cleaned_orpp$dob) == FALSE)
+
+stopifnot(anyNA(x = gi_csv_cleaned_orpp$age_at_testing) == FALSE)
 
 stopifnot(length(grep(pattern = "EQA", x = gi_csv_cleaned_orpp$comments,
      ignore.case = TRUE,
@@ -1486,7 +1542,6 @@ gi_tvar_joined_by_nhsno_add_columns <- gi_tvar_joined_by_nhsno |>
          sample_received_in_lab = "",
          test_reported = "",
          tat = "",
-         patient_age = "",
          histology = "",
          tcc = "",
          gbrca1_2 = "",
@@ -1505,6 +1560,7 @@ gi_tvar_joined_by_nhsno_select <- gi_tvar_joined_by_nhsno_add_columns |>
     full_name,
     rno.x, 
     nhsno, 
+    dob, 
     date,
     tvar_data_source,
     dataset_sent_to_rm, 
@@ -1513,7 +1569,7 @@ gi_tvar_joined_by_nhsno_select <- gi_tvar_joined_by_nhsno_add_columns |>
     sample_received_in_lab,
     test_reported,
     tat,
-    patient_age,
+    age_at_testing,
     histology,
     tcc,
     gbrca1_2,
@@ -1629,7 +1685,7 @@ Only the dataset **without** patient identifiers will be sent to Dr Morgan.
 final_dataset_patient_ids <- gi_tvar_joined_by_nhsno_brca_only
 
 final_dataset_patient_ids_removed <- final_dataset_patient_ids |> 
-  select(-c(gi_labno, full_name, rno.x, nhsno,  date, tvar_data_source))
+  select(-c(gi_labno, full_name, rno.x, nhsno,  dob, date, tvar_data_source))
 
 ```
 
