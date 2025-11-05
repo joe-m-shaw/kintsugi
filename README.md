@@ -45,3 +45,6 @@ than something to disguise”
 ([Wikipedia](https://en.wikipedia.org/wiki/Kintsugi)). This project aims
 to join data from multiple aspects of genetic testing, without trying to
 disguise this.
+
+The `kintsugi` logo was made using an image from [this Pinterest
+account](https://uk.pinterest.com/pin/553590979213079760/).
