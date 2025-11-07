@@ -30,12 +30,6 @@ pak::pak("joe-m-shaw/kintsugi")
 order to use `kintsugi`, your computer will need to have an odbc
 connection to the internal Microsoft SQL server.
 
-## Repository structure
-
-`kintsugi` follows the structure of a standard R package, but with an
-additional `analysis` folder which contains code for data requests.
-Scripts in the `analysis` folder are ignored during package building.
-
 ## What does kintsugi mean?
 
 Kintsugi is the Japanese art of repairing broken pottery, literally
